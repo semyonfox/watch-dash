@@ -1,0 +1,152 @@
+{
+  "manifest_version": 3,
+  "name": "WatchDash: Speed Control & Auto Skip",
+  "short_name": "WatchDash",
+  "version": "0.5.0",
+  "description": "Speed controls, auto-skip, next episode, and playback diagnostics for streaming sites.",
+  "icons": {
+    "16": "src/assets/icon-16.png",
+    "32": "src/assets/icon-32.png",
+    "48": "src/assets/icon-48.png",
+    "128": "src/assets/icon-128.png"
+  },
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "WatchDash",
+    "default_icon": {
+      "16": "src/assets/icon-16.png",
+      "32": "src/assets/icon-32.png",
+      "48": "src/assets/icon-48.png",
+      "128": "src/assets/icon-128.png"
+    }
+  },
+  "background": {
+    "service_worker": "src/background/service-worker.js"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.netflix.com/*",
+    "*://*.primevideo.com/*",
+    "*://*.amazon.com/*",
+    "*://*.amazon.co.uk/*",
+    "*://*.amazon.de/*",
+    "*://*.amazon.fr/*",
+    "*://*.amazon.it/*",
+    "*://*.amazon.es/*",
+    "*://*.amazon.ca/*",
+    "*://*.amazon.com.au/*",
+    "*://*.amazon.co.jp/*",
+    "*://*.amazon.in/*",
+    "*://*.amazon.com.br/*",
+    "*://*.amazon.com.mx/*",
+    "*://*.amazon.nl/*",
+    "*://*.disneyplus.com/*",
+    "*://*.max.com/*",
+    "*://*.hbomax.com/*",
+    "*://*.hulu.com/*",
+    "*://tv.apple.com/*",
+    "*://*.tv.apple.com/*",
+    "*://*.peacocktv.com/*",
+    "*://*.paramountplus.com/*",
+    "*://*.youtube.com/*",
+    "*://youtu.be/*",
+    "*://*.crunchyroll.com/*",
+    "*://*.tubi.tv/*",
+    "*://therokuchannel.roku.com/*",
+    "*://*.therokuchannel.roku.com/*",
+    "*://*.pluto.tv/*",
+    "http://localhost/*",
+    "https://localhost/*",
+    "http://127.0.0.1/*",
+    "https://127.0.0.1/*"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.netflix.com/*",
+        "*://*.primevideo.com/*",
+        "*://*.amazon.com/*",
+        "*://*.amazon.co.uk/*",
+        "*://*.amazon.de/*",
+        "*://*.amazon.fr/*",
+        "*://*.amazon.it/*",
+        "*://*.amazon.es/*",
+        "*://*.amazon.ca/*",
+        "*://*.amazon.com.au/*",
+        "*://*.amazon.co.jp/*",
+        "*://*.amazon.in/*",
+        "*://*.amazon.com.br/*",
+        "*://*.amazon.com.mx/*",
+        "*://*.amazon.nl/*",
+        "*://*.disneyplus.com/*",
+        "*://*.max.com/*",
+        "*://*.hbomax.com/*",
+        "*://*.hulu.com/*",
+        "*://tv.apple.com/*",
+        "*://*.tv.apple.com/*",
+        "*://*.peacocktv.com/*",
+        "*://*.paramountplus.com/*",
+        "*://*.youtube.com/*",
+        "*://youtu.be/*",
+        "*://*.crunchyroll.com/*",
+        "*://*.tubi.tv/*",
+        "*://therokuchannel.roku.com/*",
+        "*://*.therokuchannel.roku.com/*",
+        "*://*.pluto.tv/*",
+        "http://localhost/*",
+        "https://localhost/*",
+        "http://127.0.0.1/*",
+        "https://127.0.0.1/*"
+      ],
+      "js": [
+        "src/shared/defaults.js",
+        "src/shared/settings.js",
+        "src/content/platforms.js",
+        "src/content/media.js",
+        "src/content/automation.js",
+        "src/content/youtube-controller.js",
+        "src/content/watch-dash.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/content/youtube-bridge.js"
+      ],
+      "matches": [
+        "*://*.youtube.com/*",
+        "*://youtu.be/*"
+      ]
+    }
+  ],
+  "commands": {
+    "increase-speed": {
+      "suggested_key": {
+        "default": "Alt+Period"
+      },
+      "description": "Increase playback speed"
+    },
+    "decrease-speed": {
+      "suggested_key": {
+        "default": "Alt+Comma"
+      },
+      "description": "Decrease playback speed"
+    },
+    "reset-speed": {
+      "description": "Reset playback speed"
+    },
+    "toggle-autopilot": {
+      "description": "Toggle WatchDash"
+    }
+  }
+}

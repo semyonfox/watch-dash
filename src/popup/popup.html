@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WatchDash</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <img class="brand-mark" src="../assets/watchdash-mark.png" alt="" width="36" height="36" aria-hidden="true">
+          <div class="brand-copy">
+            <h1><span>Watch</span><span>Dash</span></h1>
+            <p id="platform" class="platform">No active player</p>
+          </div>
+        </div>
+        <label class="power-switch" title="Enable WatchDash">
+          <input id="enabled" type="checkbox" aria-label="Enable WatchDash">
+          <span class="switch-track" aria-hidden="true">
+            <span class="switch-thumb"></span>
+          </span>
+        </label>
+      </header>
+
+      <section class="panel speed-panel" aria-label="Playback">
+        <div class="panel-title">
+          <h2>Playback Speed</h2>
+          <span id="speedBadge">1.00x</span>
+        </div>
+        <div class="speed-readout">
+          <button id="decrease" class="step-button" type="button" aria-label="Decrease speed">-</button>
+          <label class="speed-value" for="speedNumber">
+            <span class="sr-only">Target speed</span>
+            <input id="speedNumber" type="number" min="0.25" max="16" step="0.05">
+          </label>
+          <button id="increase" class="step-button" type="button" aria-label="Increase speed">+</button>
+        </div>
+        <input id="speed" class="range" type="range" min="0.25" max="16" step="0.05">
+        <div class="speed-tools">
+          <label class="field">
+            <span>Step</span>
+            <input id="speedStep" type="number" min="0.01" max="1" step="0.01">
+          </label>
+          <button id="reset" class="secondary-action" type="button">Reset 1x</button>
+        </div>
+        <div class="presets" aria-label="Speed presets">
+          <button type="button" data-speed="0.5">0.5x</button>
+          <button type="button" data-speed="0.75">0.75x</button>
+          <button type="button" data-speed="1">1x</button>
+          <button type="button" data-speed="1.25">1.25x</button>
+          <button type="button" data-speed="1.5">1.5x</button>
+          <button type="button" data-speed="2">2x</button>
+          <button type="button" data-speed="4">4x</button>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Quick toggles">
+        <div class="panel-title">
+          <h2>Controls</h2>
+        </div>
+        <div class="toggle-grid">
+          <label class="toggle-card">
+            <input id="speedControls" type="checkbox">
+            <span class="tile-title">Speed Control</span>
+            <span class="mini-switch" aria-hidden="true"></span>
+          </label>
+          <label class="toggle-card">
+            <input id="qualityDiagnostics" type="checkbox">
+            <span class="tile-title">Quality</span>
+            <span class="mini-switch" aria-hidden="true"></span>
+          </label>
+          <label class="toggle-card">
+            <input id="hotkeys" type="checkbox">
+            <span class="tile-title">Hotkeys</span>
+            <span class="mini-switch" aria-hidden="true"></span>
+          </label>
+          <label class="toggle-card" data-action-setting="skipIntros">
+            <input id="skipIntros" type="checkbox">
+            <span class="tile-title">Intros</span>
+            <span class="mini-switch" aria-hidden="true"></span>
+          </label>
+          <label class="toggle-card" data-action-setting="skipRecaps">
+            <input id="skipRecaps" type="checkbox">
+            <span class="tile-title">Recaps</span>
+            <span class="mini-switch" aria-hidden="true"></span>
+          </label>
+          <label class="toggle-card" data-action-setting="skipCredits">
+            <input id="skipCredits" type="checkbox">
+            <span class="tile-title">Credits</span>
+            <span class="mini-switch" aria-hidden="true"></span>
+          </label>
+          <label class="toggle-card" data-action-setting="autoNextEpisode">
+            <input id="autoNextEpisode" type="checkbox">
+            <span class="tile-title">Next Episode</span>
+            <span class="mini-switch" aria-hidden="true"></span>
+          </label>
+          <label class="toggle-card" data-action-setting="continuePlaying">
+            <input id="continuePlaying" type="checkbox">
+            <span class="tile-title">Continue</span>
+            <span class="mini-switch" aria-hidden="true"></span>
+          </label>
+        </div>
+      </section>
+
+      <section id="youtubePanel" class="panel service-panel" aria-label="YouTube" hidden>
+        <div class="panel-title">
+          <h2>YouTube Assist</h2>
+          <span id="youtubeAdState">Ready</span>
+        </div>
+        <div class="toggle-grid">
+          <label class="toggle-card">
+            <input id="youtubeQualityControls" type="checkbox">
+            <span class="tile-title">Set Quality</span>
+            <span class="mini-switch" aria-hidden="true"></span>
+          </label>
+          <label class="toggle-card">
+            <input id="youtubeAutoSkipAds" type="checkbox">
+            <span class="tile-title">Skip Ads</span>
+            <span class="mini-switch" aria-hidden="true"></span>
+          </label>
+          <label class="toggle-card">
+            <input id="youtubeAdSpeedup" type="checkbox">
+            <span class="tile-title">Ad Speed</span>
+            <span class="mini-switch" aria-hidden="true"></span>
+          </label>
+        </div>
+        <div class="speed-tools">
+          <div id="youtubeAdSpeedState" class="inline-status">Ad speed: 16x</div>
+          <div id="youtubeQualityState" class="inline-status">Quality: pending</div>
+        </div>
+      </section>
+
+      <section class="panel quality-panel" aria-label="Quality target">
+        <div class="panel-title">
+          <h2>Quality Target</h2>
+          <span id="qualityTargetLabel">1080p</span>
+        </div>
+        <input id="qualityTarget" class="range" type="range" min="0" max="4" step="1">
+        <div class="quality-ticks">
+          <span>480</span>
+          <span>720</span>
+          <span>1080</span>
+          <span>1440</span>
+          <span>4K</span>
+        </div>
+        <button id="openQuality" class="secondary-action wide-action" type="button">Playback Settings</button>
+      </section>
+
+      <section class="status panel" aria-live="polite">
+        <div class="panel-title">
+          <h2>Playback Status</h2>
+        </div>
+        <div id="resolution">Resolution: unavailable</div>
+        <div id="frames">Frames: unavailable</div>
+        <div id="lastAction">Last action: none</div>
+        <button id="enableSite" class="secondary-action wide-action" type="button" hidden>Enable on This Site</button>
+      </section>
+    </main>
+
+    <script src="../shared/defaults.js"></script>
+    <script src="../shared/settings.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "watch-dash",
+  "version": "0.5.0",
+  "private": true,
+  "description": "Browser extension for streaming playback speed, auto-skip, next episode, and quality diagnostics.",
+  "scripts": {
+    "check": "node scripts/validate-extension.js && node scripts/test-unit.js",
+    "test": "node scripts/test-unit.js"
+  },
+  "license": "MIT"
+}

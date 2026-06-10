@@ -1,0 +1,594 @@
+:root {
+  color-scheme: dark;
+  --bg: #0d0f11;
+  --surface: #15181b;
+  --surface-2: #1c2024;
+  --well: #101316;
+  --ink: #f2f4f6;
+  --text: #d2d8dd;
+  --muted: #959da6;
+  --muted-strong: #b2bac2;
+  --border: #272c31;
+  --border-strong: #3b424a;
+  --accent: #2e9e6b;
+  --accent-bright: #5fd49b;
+  --accent-soft: rgba(62, 190, 130, 0.1);
+  --accent-edge: rgba(62, 190, 130, 0.42);
+  --speed-tint: #ecc36a;
+  --speed-edge: rgba(236, 195, 106, 0.32);
+  --speed-soft: rgba(236, 195, 106, 0.08);
+  --quality-tint: #6cc8da;
+  --quality-edge: rgba(108, 200, 218, 0.32);
+  --quality-soft: rgba(108, 200, 218, 0.08);
+  --focus: #8ecdf5;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --gap: 8px;
+  --control-h: 34px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+body {
+  width: 400px;
+  max-width: 100vw;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  /* common cross-platform UI faces with explicit fallbacks; system-ui alone
+     is meant for native UI strings and can pick odd faces for longer text */
+  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  min-height: var(--control-h);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+button:hover {
+  border-color: var(--border-strong);
+  background: #23282d;
+  color: var(--ink);
+}
+
+button:active {
+  background: var(--well);
+}
+
+button:disabled {
+  border-color: var(--border);
+  background: var(--surface);
+  color: #79828c;
+  cursor: not-allowed;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.shell {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+/* header is a flat toolbar, not a card */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 2px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.brand-mark {
+  display: block;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+}
+
+.brand-copy {
+  min-width: 0;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+h1 span + span {
+  color: var(--accent-bright);
+}
+
+.platform {
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 11px;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+}
+
+.panel-title h2 {
+  color: var(--muted-strong);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+#speedBadge,
+#qualityTargetLabel,
+#youtubeAdState {
+  min-width: 52px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--well);
+  color: var(--muted-strong);
+  padding: 2px 9px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+#speedBadge {
+  border-color: var(--speed-edge);
+  background: var(--speed-soft);
+  color: var(--speed-tint);
+}
+
+#qualityTargetLabel,
+#youtubeAdState {
+  border-color: var(--quality-edge);
+  background: var(--quality-soft);
+  color: var(--quality-tint);
+}
+
+.power-switch {
+  position: relative;
+  display: inline-grid;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.power-switch input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.power-switch input:focus-visible + .switch-track {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.switch-track,
+.mini-switch {
+  position: relative;
+  display: block;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--well);
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.switch-track {
+  width: 46px;
+  height: 26px;
+}
+
+.switch-thumb,
+.mini-switch::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  background: #aeb6be;
+  transition:
+    transform 150ms ease,
+    background 150ms ease;
+}
+
+.switch-thumb {
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+}
+
+.power-switch input:checked + .switch-track {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.power-switch input:checked + .switch-track .switch-thumb {
+  transform: translateX(20px);
+  background: #ffffff;
+}
+
+.speed-panel {
+  gap: 12px;
+}
+
+.speed-readout {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  gap: var(--gap);
+  align-items: stretch;
+}
+
+.step-button {
+  min-height: 52px;
+  padding: 0;
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.step-button:hover {
+  color: var(--accent-bright);
+}
+
+.speed-value {
+  display: block;
+  min-width: 0;
+}
+
+#speedNumber,
+.field input,
+.inline-status {
+  width: 100%;
+  min-height: var(--control-h);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+  color: var(--text);
+}
+
+#speedNumber {
+  min-height: 52px;
+  color: var(--ink);
+  text-align: center;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+#speedNumber::-webkit-inner-spin-button,
+#speedNumber::-webkit-outer-spin-button {
+  margin: 0;
+}
+
+.range {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 26px;
+  margin: 0;
+  background: transparent;
+  --range-color: var(--accent-bright);
+  --range-fill: 0%;
+  --range-track: #2b3137;
+}
+
+#qualityTarget {
+  --range-color: var(--quality-tint);
+}
+
+.range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      90deg,
+      var(--range-color) 0 var(--range-fill),
+      var(--range-track) var(--range-fill) 100%
+    );
+}
+
+.range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--range-color);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.range::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--range-track);
+}
+
+.range::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--range-color);
+}
+
+.range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--range-color);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.speed-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(116px, 1fr);
+  gap: var(--gap);
+  align-items: end;
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.field input {
+  padding: 0 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.secondary-action {
+  padding: 5px 12px;
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.secondary-action:hover {
+  color: var(--accent-bright);
+}
+
+.presets,
+.toggle-grid,
+.quality-ticks {
+  display: grid;
+  gap: var(--gap);
+}
+
+.presets {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.presets button {
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 2px;
+  background: var(--well);
+  color: var(--muted-strong);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.presets button:hover {
+  color: var(--ink);
+}
+
+.presets button[aria-pressed="true"] {
+  border-color: var(--accent-bright);
+  background: var(--accent-bright);
+  color: #0b2519;
+}
+
+.toggle-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* the checkbox itself is the visible tile surface (appearance: none),
+   so checked/focus states need no :has() and the focus ring wraps the tile */
+.toggle-card {
+  position: relative;
+  display: grid;
+  min-height: 44px;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: var(--gap);
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.toggle-card > input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+.toggle-card > input:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+
+.toggle-card > input:checked {
+  border-color: var(--accent-edge);
+  background: var(--accent-soft);
+}
+
+.toggle-card > span {
+  position: relative;
+  pointer-events: none;
+}
+
+.tile-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted-strong);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.toggle-card > input:checked ~ .tile-title {
+  color: var(--ink);
+}
+
+.mini-switch {
+  width: 30px;
+  height: 18px;
+}
+
+.mini-switch::after {
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+}
+
+.toggle-card > input:checked ~ .mini-switch {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.toggle-card > input:checked ~ .mini-switch::after {
+  transform: translateX(12px);
+  background: #ffffff;
+}
+
+.inline-status {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  padding: 8px 10px;
+  color: var(--muted-strong);
+  font-size: 12px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.quality-panel {
+  gap: 9px;
+}
+
+.quality-ticks {
+  grid-template-columns: repeat(5, 1fr);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.wide-action {
+  width: 100%;
+}
+
+.status {
+  gap: 0;
+  color: var(--muted-strong);
+  font-size: 12px;
+}
+
+.status .panel-title {
+  margin-bottom: 6px;
+}
+
+/* plain rows with hairline separators instead of boxes inside the card */
+.status div:not(.panel-title) {
+  padding: 6px 1px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.status div:not(.panel-title) + div {
+  border-top: 1px solid var(--border);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
