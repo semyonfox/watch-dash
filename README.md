@@ -49,7 +49,7 @@ The first broad platform wave follows current U.S. popularity signals:
 1. Open `brave://extensions`, `chrome://extensions`, or `edge://extensions`.
 2. Enable Developer mode.
 3. Choose Load unpacked.
-4. Select this folder: `C:\Users\foxsc\code\personal\watch-dash`.
+4. Select the cloned repository folder.
 
 ## Validate
 
@@ -63,7 +63,7 @@ No build step is required. The files in this directory are the extension.
 
 The first implementation does not copy or patch Netflix player internals. Higher quality playback is started as diagnostics, a target slider, and account/browser guidance because current high-quality forcing techniques are brittle, browser/DRM dependent, and often rely on patched proprietary player bundles.
 
-See [docs/research.md](docs/research.md) for the local extension scan, market notes, licensing notes, and the quality roadmap.
+See [docs/research.md](docs/research.md) for market notes, licensing notes, and the quality roadmap.
 
 ## Code Shape
 

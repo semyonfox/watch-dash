@@ -6,10 +6,6 @@ Date: 2026-06-09
 
 The original working name, Stream Pilot, was dropped after finding multiple existing products and extensions using StreamPilot/Stream Pilot. CueGlide was also dropped. WatchDash: Speed Control & Auto Skip is the current working name for browser extension stores, with WatchDash as the short name.
 
-## Local Browser Scan
-
-A local browser scan informed early competitor research, but machine-specific paths, profile names, and extension IDs are intentionally excluded from this repository. Keep this section limited to portable conclusions and public sources.
-
 ## Market Notes
 
 - June 2026 platform priority: JustWatch Q1 2026 U.S. SVOD engagement puts Netflix at 19%, Prime Video at 17%, Disney+ at 16%, Apple TV+ and HBO Max at 12%, and Hulu at 11%, with Peacock and Paramount+ behind them. The first broad WatchDash wave therefore covers Netflix, Prime Video/Amazon, Disney+, HBO Max/Max, Hulu, Apple TV+, Peacock, and Paramount+.
