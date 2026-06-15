@@ -276,15 +276,27 @@
       label: "Skip ad",
       cooldownMs: 900,
       selectors: [
-        "button.ytp-ad-skip-button",
-        "button.ytp-ad-skip-button-modern",
-        ".ytp-ad-skip-button",
-        ".ytp-ad-skip-button-modern",
-        ".ytp-skip-ad-button",
-        "button[aria-label*='Skip Ad' i]",
-        "button[aria-label*='Skip Ads' i]",
-        "[class*='ad-skip' i] button",
-        "[class*='skip-ad' i] button"
+        "#movie_player .video-ads button.ytp-ad-skip-button",
+        "#movie_player .video-ads button.ytp-ad-skip-button-modern",
+        "#movie_player .video-ads .ytp-ad-skip-button",
+        "#movie_player .video-ads .ytp-ad-skip-button-modern",
+        "#movie_player .video-ads .ytp-skip-ad-button",
+        "#movie_player .ytp-ad-skip-button-container button",
+        "#movie_player .ytp-ad-skip-button-container",
+        "#movie_player button.ytp-ad-skip-button",
+        "#movie_player button.ytp-ad-skip-button-modern",
+        "#movie_player .ytp-ad-skip-button",
+        "#movie_player .ytp-ad-skip-button-modern",
+        "#movie_player .ytp-skip-ad-button",
+        "#movie_player button[aria-label*='Skip Ad' i]",
+        "#movie_player button[aria-label*='Skip Ads' i]",
+        "#movie_player button[aria-label='Skip' i]",
+        "#movie_player .video-ads [role='button'][aria-label*='Skip Ad' i]",
+        "#movie_player .video-ads [role='button'][aria-label*='Skip Ads' i]",
+        "#movie_player .video-ads [class*='ad-skip' i] button",
+        "#movie_player .video-ads [class*='skip-ad' i] button",
+        "#movie_player [class*='ad-skip' i] button",
+        "#movie_player [class*='skip-ad' i] button"
       ],
       text: [
         "Skip Ad",
@@ -297,11 +309,22 @@
       type: "nextEpisode",
       label: "Next video",
       cooldownMs: 90000,
+      minProgressBeforeEnded: 0.985,
+      maxRemainingSecondsBeforeEnded: 8,
       selectors: [
-        "button.ytp-next-button",
-        ".ytp-next-button"
+        "#movie_player a.ytp-autonav-endscreen-upnext-play-button[role='button']",
+        "#movie_player .ytp-autonav-endscreen-upnext-play-button",
+        "#movie_player button.ytp-endscreen-next",
+        "#movie_player .ytp-endscreen-next",
+        "#movie_player a.ytp-next-button[role='button']",
+        "#movie_player button.ytp-next-button",
+        "#movie_player .ytp-next-button",
+        "#movie_player a[aria-label*='Play next video' i]",
+        "#movie_player [role='button'][aria-label*='Play next video' i]"
       ],
       text: [
+        "Play next video",
+        "Play Now",
         "Next video"
       ]
     })

@@ -20,7 +20,9 @@ Manifest V3 browser extension for streaming playback utilities across the major 
 - YouTube-specific controls:
   - Apply the quality target to YouTube's player when available.
   - Temporarily speed up ads to 16x, then restore the pre-ad playback speed when the ad ends or is skipped.
-  - Auto-click YouTube's skip-ad button when it appears.
+  - Auto-click YouTube's current skip-ad controls when they appear.
+  - Jump the ad video near its end when YouTube is in ad mode but no visible skip-ad control is exposed.
+  - Use YouTube's current next-video, autonav endscreen, and Play Now controls for auto-next.
 - Button automation where the platform exposes accessible player controls:
   - Skip intro.
   - Skip recap.

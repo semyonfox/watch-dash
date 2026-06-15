@@ -176,8 +176,88 @@ function testYouTubeBridgeOriginAndQuality() {
   assert.strictEqual(responses[0].payload.targetLevel, "hd720");
 }
 
+function testYouTubeSelectorsFromPlayerProbe() {
+  const context = loadScripts(["src/content/platforms.js"], {
+    document: {
+      querySelector() {
+        return null;
+      }
+    },
+    location: {
+      hostname: "www.youtube.com",
+      pathname: "/watch"
+    }
+  });
+  const youtube = context.WatchDashPlatforms.find((platform) => platform.id === "youtube");
+  const skipAd = youtube.actions.find((action) => action.id === "skip-ad");
+  const nextVideo = youtube.actions.find((action) => action.id === "next-video");
+
+  assert(skipAd.selectors.includes("#movie_player .video-ads button.ytp-ad-skip-button-modern"));
+  assert(skipAd.selectors.includes("#movie_player .ytp-ad-skip-button-container button"));
+  assert(nextVideo.selectors.includes("#movie_player a.ytp-autonav-endscreen-upnext-play-button[role='button']"));
+  assert(nextVideo.selectors.includes("#movie_player button.ytp-endscreen-next"));
+  assert.strictEqual(nextVideo.minProgressBeforeEnded, 0.985);
+  assert.strictEqual(nextVideo.maxRemainingSecondsBeforeEnded, 8);
+}
+
+function testYouTubeAdOverlayDetectionAndJumpFallback() {
+  const visibleElement = {
+    checkVisibility: () => true,
+    getBoundingClientRect() {
+      return { width: 120, height: 32 };
+    }
+  };
+  const dispatchedEvents = [];
+  const context = loadScripts(["src/content/youtube-controller.js"], {
+    document: {
+      querySelector() {
+        return null;
+      },
+      querySelectorAll(selector) {
+        return selector.includes("ytp-ad-player-overlay") ? [visibleElement] : [];
+      }
+    },
+    window: {
+      addEventListener() {}
+    },
+    getComputedStyle() {
+      return { visibility: "visible", display: "block", opacity: "1" };
+    },
+    Event: class {
+      constructor(type, init) {
+        this.type = type;
+        this.bubbles = Boolean(init && init.bubbles);
+      }
+    }
+  });
+  const controller = context.WatchDashYouTubeController;
+  const platform = { id: "youtube" };
+  const video = {
+    currentTime: 3,
+    duration: 12,
+    seekable: {
+      length: 1,
+      end() {
+        return 12;
+      }
+    },
+    dispatchEvent(event) {
+      dispatchedEvents.push(event.type);
+    }
+  };
+
+  assert.strictEqual(controller.isAdShowing(platform), true);
+  assert.strictEqual(controller.jumpForwardThroughAd(platform, { youtubeAutoSkipAds: false }, video), null);
+  assert.strictEqual(video.currentTime, 3);
+  assert.strictEqual(controller.jumpForwardThroughAd(platform, { youtubeAutoSkipAds: true }, video), "Jump ad");
+  assert.strictEqual(video.currentTime, 11.75);
+  assert.deepStrictEqual(dispatchedEvents, ["seeking", "timeupdate"]);
+}
+
 testSettingsStorageEnvelope();
 testAutomationTextFallbackGate();
 testYouTubeBridgeOriginAndQuality();
+testYouTubeSelectorsFromPlayerProbe();
+testYouTubeAdOverlayDetectionAndJumpFallback();
 
 console.log("Unit tests OK");

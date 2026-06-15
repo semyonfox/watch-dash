@@ -6,6 +6,8 @@
   let lastVideoKey = null;
   let qualityStatus = null;
   const bridgeToken = createRequestId();
+  const adJumpEndPaddingSeconds = 0.25;
+  const adJumpMinimumRemainingSeconds = 0.75;
 
   const bridgeRequests = new Map();
   const bridgeQueue = [];
@@ -19,9 +21,95 @@
       return false;
     }
 
-    return Boolean(document.querySelector(
+    if (document.querySelector(
       ".html5-video-player.ad-showing, .html5-video-player.ad-interrupting, #movie_player.ad-showing, #movie_player.ad-interrupting"
-    ));
+    )) {
+      return true;
+    }
+
+    return [
+      "#movie_player .video-ads .ytp-ad-player-overlay",
+      "#movie_player .video-ads .ytp-ad-preview-container",
+      "#movie_player .video-ads .ytp-ad-skip-button",
+      "#movie_player .video-ads .ytp-ad-skip-button-modern",
+      "#movie_player .video-ads .ytp-skip-ad-button",
+      "#movie_player .ytp-ad-player-overlay",
+      "#movie_player .ytp-ad-preview-container"
+    ].some(hasVisibleElement);
+  }
+
+  function jumpForwardThroughAd(platform, settings, video) {
+    if (!isYouTubePlatform(platform) ||
+      !settings ||
+      !settings.youtubeAutoSkipAds ||
+      !isAdShowing(platform) ||
+      !canJumpForward(video)) {
+      return null;
+    }
+
+    const targetTime = Math.max(0, video.duration - adJumpEndPaddingSeconds);
+
+    try {
+      video.currentTime = targetTime;
+      video.dispatchEvent(new Event("seeking", { bubbles: true }));
+      video.dispatchEvent(new Event("timeupdate", { bubbles: true }));
+      return "Jump ad";
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function canJumpForward(video) {
+    if (!video ||
+      !Number.isFinite(video.duration) ||
+      !Number.isFinite(video.currentTime) ||
+      video.duration <= adJumpEndPaddingSeconds ||
+      video.duration - video.currentTime < adJumpMinimumRemainingSeconds) {
+      return false;
+    }
+
+    if (video.seekable && video.seekable.length > 0) {
+      const lastRange = video.seekable.length - 1;
+      try {
+        return video.seekable.end(lastRange) >= video.duration - adJumpEndPaddingSeconds;
+      } catch (error) {
+        return true;
+      }
+    }
+
+    return true;
+  }
+
+  function hasVisibleElement(selector) {
+    try {
+      return Array.from(document.querySelectorAll(selector)).some(isVisibleElement);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function isVisibleElement(element) {
+    if (!element) {
+      return false;
+    }
+
+    if (typeof element.checkVisibility === "function") {
+      try {
+        if (!element.checkVisibility()) {
+          return false;
+        }
+      } catch (error) {
+        // Fall through to the explicit checks below.
+      }
+    }
+
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return false;
+    }
+
+    const style = getComputedStyle(element);
+    return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0.01;
   }
 
   function applyQualityTarget(platform, settings) {
@@ -190,6 +278,7 @@
 
   root.WatchDashYouTubeController = Object.freeze({
     applyQualityTarget,
+    jumpForwardThroughAd,
     isAdShowing,
     getQualityStatus(platform) {
       return isYouTubePlatform(platform) ? qualityStatus : null;

@@ -273,6 +273,15 @@
 
       const target = automation.findActionTarget(action, { allowTextFallback });
       if (!target) {
+        const fallbackAction = runAutomationFallback(action, video);
+
+        if (fallbackAction) {
+          actionCooldowns.set(action.id, now);
+          lastAction = fallbackAction;
+          lastActionAt = now;
+          break;
+        }
+
         continue;
       }
 
@@ -286,6 +295,18 @@
       lastActionAt = now;
       break;
     }
+  }
+
+  function runAutomationFallback(action, video) {
+    if (action.type === "adSkip" &&
+      currentPlatform &&
+      currentPlatform.id === "youtube" &&
+      youtubeController &&
+      typeof youtubeController.jumpForwardThroughAd === "function") {
+      return youtubeController.jumpForwardThroughAd(currentPlatform, settings, video);
+    }
+
+    return null;
   }
 
   function shouldRunAction(action, target, video) {
