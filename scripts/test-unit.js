@@ -254,10 +254,27 @@ function testYouTubeAdOverlayDetectionAndJumpFallback() {
   assert.deepStrictEqual(dispatchedEvents, ["seeking", "timeupdate"]);
 }
 
+function testPopupStatusLiveRegionStructure() {
+  const popupHtml = fs.readFileSync(path.join(root, "src/popup/popup.html"), "utf8");
+  const statusSectionMatch = popupHtml.match(/<section\b[^>]*\bclass="[^"]*\bstatus\b[^"]*\bpanel\b[^"]*"[^>]*>/);
+  const liveRegionMatch = popupHtml.match(/<div[^>]+id="statusLiveRegion"[^>]*>/);
+  const framesRowMatch = popupHtml.match(/<div[^>]+id="frames"[^>]*>/);
+
+  assert(statusSectionMatch, "Playback status section should exist.");
+  assert(!/aria-live=/.test(statusSectionMatch[0]), "The whole status panel must not be a live region.");
+  assert(liveRegionMatch, "A dedicated status live region should exist.");
+  assert(/\bclass="[^"]*\bsr-only\b[^"]*"/.test(liveRegionMatch[0]), "The status live region should be visually hidden.");
+  assert(/aria-live="polite"/.test(liveRegionMatch[0]), "The status live region should be polite.");
+  assert(/aria-atomic="true"/.test(liveRegionMatch[0]), "The status live region should announce complete updates.");
+  assert(framesRowMatch, "Frame diagnostics row should exist.");
+  assert(!/aria-live=/.test(framesRowMatch[0]), "Frame diagnostics must not be live-announced every second.");
+}
+
 testSettingsStorageEnvelope();
 testAutomationTextFallbackGate();
 testYouTubeBridgeOriginAndQuality();
 testYouTubeSelectorsFromPlayerProbe();
 testYouTubeAdOverlayDetectionAndJumpFallback();
+testPopupStatusLiveRegionStructure();
 
 console.log("Unit tests OK");
