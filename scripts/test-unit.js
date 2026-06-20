@@ -319,11 +319,54 @@ function testYouTubeBridgeQueueClearsOnInjectionFailure() {
   assert.strictEqual(status.error, "bridge-load-error");
 }
 
+function makeVideo({ paused, ended, width, height }) {
+  return {
+    paused,
+    ended,
+    getBoundingClientRect() {
+      return { width, height };
+    }
+  };
+}
+
+function testActiveVideoSelectionUsesScorePriority() {
+  const endedSmall = makeVideo({ paused: false, ended: true, width: 320, height: 180 });
+  const pausedLarge = makeVideo({ paused: true, ended: false, width: 1600, height: 900 });
+  const playingSmall = makeVideo({ paused: false, ended: false, width: 320, height: 180 });
+  const playingLarge = makeVideo({ paused: false, ended: false, width: 1280, height: 720 });
+  const videos = [endedSmall, pausedLarge, playingSmall, playingLarge];
+  const context = loadScripts(["src/content/media.js"], {
+    document: {
+      querySelectorAll(selector) {
+        return selector === "video" ? videos : [];
+      }
+    }
+  });
+
+  assert.strictEqual(context.WatchDashMedia.findActiveVideo(), playingLarge);
+}
+
+function testActiveVideoSelectionPreservesFirstTie() {
+  const first = makeVideo({ paused: false, ended: false, width: 640, height: 360 });
+  const second = makeVideo({ paused: false, ended: false, width: 640, height: 360 });
+  const context = loadScripts(["src/content/media.js"], {
+    document: {
+      querySelectorAll(selector) {
+        return selector === "video" ? [first, second] : [];
+      }
+    }
+  });
+
+  assert.strictEqual(context.WatchDashMedia.findActiveVideo(), first);
+}
+
 testSettingsStorageEnvelope();
 testAutomationTextFallbackGate();
 testYouTubeBridgeOriginAndQuality();
 testYouTubeSelectorsFromPlayerProbe();
 testYouTubeAdOverlayDetectionAndJumpFallback();
 testYouTubeBridgeQueueClearsOnInjectionFailure();
+testActiveVideoSelectionUsesScorePriority();
+testActiveVideoSelectionPreservesFirstTie();
 
 console.log("Unit tests OK");
