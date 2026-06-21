@@ -303,7 +303,7 @@
     renderSiteAccessButton();
     elements.resolution.textContent = "Resolution: unavailable";
     elements.frames.textContent = "Frames: unavailable";
-    elements.lastAction.textContent = "Last action: none";
+    renderLastAction(null);
   }
 
   function renderStatus(status) {
@@ -333,7 +333,14 @@
       elements.frames.textContent = "Frames: unavailable";
     }
 
-    elements.lastAction.textContent = status.lastAction ? `Last action: ${status.lastAction}` : "Last action: none";
+    renderLastAction(status.lastAction);
+  }
+
+  function renderLastAction(lastAction) {
+    const nextText = lastAction ? `Last action: ${lastAction}` : "Last action: none";
+    if (elements.lastAction.textContent !== nextText) {
+      elements.lastAction.textContent = nextText;
+    }
   }
 
   function renderPlaybackSettingsButton(status) {

@@ -319,11 +319,24 @@ function testYouTubeBridgeQueueClearsOnInjectionFailure() {
   assert.strictEqual(status.error, "bridge-load-error");
 }
 
+function testPopupStatusLiveRegionStructure() {
+  const html = fs.readFileSync(path.join(root, "src/popup/popup.html"), "utf8");
+  const statusSection = html.match(/<section\b(?=[^>]*\bclass="[^"]*\bstatus\b[^"]*\bpanel\b[^"]*")[^>]*>/);
+  const lastAction = html.match(/<div\b(?=[^>]*\bid="lastAction")[^>]*>/);
+
+  assert(statusSection, "status panel should exist");
+  assert(lastAction, "last action row should exist");
+  assert(!/\baria-live=/.test(statusSection[0]));
+  assert(/\baria-live="polite"/.test(lastAction[0]));
+  assert(/\baria-atomic="true"/.test(lastAction[0]));
+}
+
 testSettingsStorageEnvelope();
 testAutomationTextFallbackGate();
 testYouTubeBridgeOriginAndQuality();
 testYouTubeSelectorsFromPlayerProbe();
 testYouTubeAdOverlayDetectionAndJumpFallback();
 testYouTubeBridgeQueueClearsOnInjectionFailure();
+testPopupStatusLiveRegionStructure();
 
 console.log("Unit tests OK");
