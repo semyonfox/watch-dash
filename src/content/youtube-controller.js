@@ -8,6 +8,7 @@
   const bridgeToken = createRequestId();
   const adJumpEndPaddingSeconds = 0.25;
   const adJumpMinimumRemainingSeconds = 0.75;
+  const maxBridgeQueueLength = 10;
 
   const bridgeRequests = new Map();
   const bridgeQueue = [];
@@ -163,6 +164,7 @@
     script.onerror = () => {
       bridgeInjected = false;
       script.remove();
+      rejectQueuedBridgeCommands("bridge-load-error");
     };
     document.documentElement.appendChild(script);
   }
@@ -172,11 +174,7 @@
 
     const id = createRequestId();
     const timeout = window.setTimeout(() => {
-      bridgeRequests.delete(id);
-      qualityStatus = {
-        ok: false,
-        error: "bridge-timeout"
-      };
+      rejectBridgeRequest(id, "bridge-timeout");
     }, 1500);
 
     bridgeRequests.set(id, {
@@ -195,7 +193,44 @@
     if (bridgeReady) {
       postBridgeMessage(message);
     } else {
+      trimBridgeQueue();
       bridgeQueue.push(message);
+    }
+  }
+
+  function trimBridgeQueue() {
+    while (bridgeQueue.length >= maxBridgeQueueLength) {
+      rejectBridgeRequest(bridgeQueue.shift().id, "bridge-queue-full");
+    }
+  }
+
+  function rejectQueuedBridgeCommands(error) {
+    while (bridgeQueue.length > 0) {
+      rejectBridgeRequest(bridgeQueue.shift().id, error);
+    }
+  }
+
+  function rejectBridgeRequest(id, error) {
+    const request = bridgeRequests.get(id);
+    removeQueuedBridgeMessage(id);
+    if (!request) {
+      return;
+    }
+
+    window.clearTimeout(request.timeout);
+    bridgeRequests.delete(id);
+    request.callback({
+      ok: false,
+      id,
+      command: request.command,
+      error
+    });
+  }
+
+  function removeQueuedBridgeMessage(id) {
+    const queueIndex = bridgeQueue.findIndex((message) => message.id === id);
+    if (queueIndex !== -1) {
+      bridgeQueue.splice(queueIndex, 1);
     }
   }
 

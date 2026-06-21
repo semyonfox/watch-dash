@@ -254,10 +254,76 @@ function testYouTubeAdOverlayDetectionAndJumpFallback() {
   assert.deepStrictEqual(dispatchedEvents, ["seeking", "timeupdate"]);
 }
 
+function testYouTubeBridgeQueueClearsOnInjectionFailure() {
+  const createdScripts = [];
+  const timeouts = [];
+  const context = loadScripts(["src/content/youtube-controller.js"], {
+    chrome: {
+      runtime: {
+        getURL(pathname) {
+          return `chrome-extension://watch-dash/${pathname}`;
+        }
+      }
+    },
+    document: {
+      createElement(tagName) {
+        assert.strictEqual(tagName, "script");
+        const script = {
+          dataset: {},
+          remove() {
+            this.removed = true;
+          }
+        };
+        createdScripts.push(script);
+        return script;
+      },
+      documentElement: {
+        appendChild(script) {
+          script.appended = true;
+        }
+      }
+    },
+    location: {
+      href: "https://www.youtube.com/watch?v=test",
+      origin: "https://www.youtube.com"
+    },
+    window: {
+      addEventListener() {},
+      clearTimeout(id) {
+        timeouts[id].cleared = true;
+      },
+      postMessage() {},
+      setTimeout(callback, delay) {
+        timeouts.push({ callback, delay, cleared: false });
+        return timeouts.length - 1;
+      }
+    }
+  });
+  const controller = context.WatchDashYouTubeController;
+  const platform = { id: "youtube" };
+
+  controller.applyQualityTarget(platform, { youtubeQualityControls: true, qualityTargetHeight: 720 });
+
+  assert.strictEqual(createdScripts.length, 1);
+  assert.strictEqual(createdScripts[0].appended, true);
+  assert.strictEqual(timeouts.length, 1);
+  assert.strictEqual(controller.getQualityStatus(platform), null);
+
+  createdScripts[0].onerror();
+
+  const status = controller.getQualityStatus(platform);
+  assert.strictEqual(createdScripts[0].removed, true);
+  assert.strictEqual(timeouts[0].cleared, true);
+  assert.strictEqual(status.ok, false);
+  assert.strictEqual(status.command, "set-quality");
+  assert.strictEqual(status.error, "bridge-load-error");
+}
+
 testSettingsStorageEnvelope();
 testAutomationTextFallbackGate();
 testYouTubeBridgeOriginAndQuality();
 testYouTubeSelectorsFromPlayerProbe();
 testYouTubeAdOverlayDetectionAndJumpFallback();
+testYouTubeBridgeQueueClearsOnInjectionFailure();
 
 console.log("Unit tests OK");
