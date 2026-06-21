@@ -321,7 +321,7 @@ function testYouTubeBridgeQueueClearsOnInjectionFailure() {
 
 function testPopupStatusLiveRegionStructure() {
   const html = fs.readFileSync(path.join(root, "src/popup/popup.html"), "utf8");
-  const statusSection = html.match(/<section\b(?=[^>]*\bclass="[^"]*\bstatus\b[^"]*\bpanel\b[^"]*")[^>]*>/);
+  const statusSection = html.match(/<section\b(?=[^>]*\bclass="[^"]*\bstatus\b)(?=[^>]*\bclass="[^"]*\bpanel\b)[^>]*>/);
   const lastAction = html.match(/<div\b(?=[^>]*\bid="lastAction")[^>]*>/);
 
   assert(statusSection, "status panel should exist");
