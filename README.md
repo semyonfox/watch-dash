@@ -61,6 +61,17 @@ npm run check
 
 No build step is required. The files in this directory are the extension.
 
+## Privacy and Permissions
+
+WatchDash runs entirely in the browser extension context. It does not send browsing history, video metadata, playback status, or settings to a remote server.
+
+Manifest permissions are limited to:
+
+- `activeTab` and `scripting`, so the popup can activate controls for the current tab when supported.
+- `storage`, so presets, automation toggles, and quality targets can persist locally in browser extension storage.
+- Listed streaming host permissions, so content scripts can run only on supported player sites by default.
+- Optional `http://*/*` and `https://*/*` host access, reserved for user-enabled generic HTML5 video sites instead of being active by default.
+
 ## Quality Approach
 
 The first implementation does not copy or patch Netflix player internals. Higher quality playback is started as diagnostics, a target slider, and account/browser guidance because current high-quality forcing techniques are brittle, browser/DRM dependent, and often rely on patched proprietary player bundles.
