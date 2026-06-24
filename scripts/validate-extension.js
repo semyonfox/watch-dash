@@ -60,6 +60,7 @@ for (const contentScript of manifest.content_scripts || []) {
   assertNoForbiddenMatchPatterns(contentScript.matches || [], "content_scripts.matches");
 }
 
+assertManifestHostCoverage();
 assertSettingsNormalization();
 
 if (missing.length > 0 || errors.length > 0) {
@@ -119,6 +120,83 @@ function assertNoForbiddenMatchPatterns(patterns, field) {
   for (const pattern of patterns) {
     if (forbidden.has(pattern)) {
       errors.push(`${field} contains broad match pattern ${pattern}. Use explicit hosts or per-site activation.`);
+    }
+  }
+}
+
+function assertManifestHostCoverage() {
+  const registryHosts = loadPlatformRegistryHosts();
+  const hostPermissionHosts = extractManifestHosts(manifest.host_permissions || []);
+  const contentScriptHosts = new Set();
+
+  for (const contentScript of manifest.content_scripts || []) {
+    for (const host of extractManifestHosts(contentScript.matches || [])) {
+      contentScriptHosts.add(host);
+    }
+  }
+
+  assertHostSetContainsRegistryHosts(hostPermissionHosts, registryHosts, "host_permissions");
+  assertHostSetContainsRegistryHosts(contentScriptHosts, registryHosts, "content_scripts.matches");
+  assertNoHostsOutsideRegistry(hostPermissionHosts, registryHosts, "host_permissions");
+  assertNoHostsOutsideRegistry(contentScriptHosts, registryHosts, "content_scripts.matches");
+}
+
+function loadPlatformRegistryHosts() {
+  const context = {
+    globalThis: {}
+  };
+  context.globalThis = context;
+
+  vm.runInNewContext(fs.readFileSync(path.join(root, "src/content/platforms.js"), "utf8"), context, {
+    filename: "src/content/platforms.js"
+  });
+
+  return new Set(
+    context.WatchDashPlatforms.flatMap((platform) => platform.hostPatterns || [])
+      .map(normalizeHost)
+      .filter(Boolean)
+  );
+}
+
+function extractManifestHosts(patterns) {
+  return new Set(
+    patterns
+      .map(extractManifestHost)
+      .filter(Boolean)
+  );
+}
+
+function extractManifestHost(pattern) {
+  const match = /^(?:\*|https?|file):\/\/([^/]+)\//.exec(pattern);
+
+  if (!match) {
+    return "";
+  }
+
+  return normalizeHost(match[1]);
+}
+
+function normalizeHost(host) {
+  const normalized = String(host || "").toLowerCase().replace(/^\*\./, "");
+  if (!normalized || normalized === "localhost" || /^127\.0\.0\.1$/.test(normalized)) {
+    return "";
+  }
+
+  return normalized;
+}
+
+function assertHostSetContainsRegistryHosts(manifestHosts, registryHosts, field) {
+  for (const registryHost of registryHosts) {
+    if (!manifestHosts.has(registryHost)) {
+      errors.push(`${field} is missing platform registry host ${registryHost}.`);
+    }
+  }
+}
+
+function assertNoHostsOutsideRegistry(manifestHosts, registryHosts, field) {
+  for (const manifestHost of manifestHosts) {
+    if (!registryHosts.has(manifestHost)) {
+      errors.push(`${field} contains ${manifestHost}, which is not listed in the platform registry.`);
     }
   }
 }
