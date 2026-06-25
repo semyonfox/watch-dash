@@ -9,7 +9,19 @@
       return null;
     }
 
-    return videos.sort((left, right) => scoreVideo(right) - scoreVideo(left))[0];
+    let activeVideo = videos[0];
+    let activeScore = scoreVideo(activeVideo);
+
+    for (let index = 1; index < videos.length; index += 1) {
+      const candidate = videos[index];
+      const candidateScore = scoreVideo(candidate);
+      if (candidateScore > activeScore) {
+        activeVideo = candidate;
+        activeScore = candidateScore;
+      }
+    }
+
+    return activeVideo;
   }
 
   function scoreVideo(video) {
