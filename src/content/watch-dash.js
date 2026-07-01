@@ -238,9 +238,9 @@
       return;
     }
 
-    if (video.preload !== "auto") {
-      video.preload = "auto";
-    }
+    // Quality diagnostics should observe playback state only. Do not force
+    // preload here: streaming sites manage buffering themselves, and changing
+    // preload can increase network usage or fight the player.
   }
 
   function runAutomation(video) {

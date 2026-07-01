@@ -89,6 +89,113 @@ function testAutomationTextFallbackGate() {
   assert.strictEqual(automation.findActionTarget(action, { allowTextFallback: true }), element);
 }
 
+function testQualityDiagnosticsDoNotMutatePreload() {
+  const video = {
+    playbackRate: 1,
+    paused: false,
+    ended: false,
+    preload: "metadata",
+    duration: 600,
+    currentTime: 10,
+    getBoundingClientRect() {
+      return { width: 1280, height: 720 };
+    }
+  };
+  let observed = false;
+
+  loadScripts([
+    "src/shared/defaults.js",
+    "src/shared/settings.js",
+    "src/content/watch-dash.js"
+  ], {
+    location: {
+      hostname: "example.test",
+      pathname: "/watch",
+      href: "https://example.test/watch"
+    },
+    chrome: {
+      runtime: {
+        lastError: null,
+        onMessage: {
+          addListener() {}
+        }
+      },
+      storage: {
+        sync: {
+          get(keys, callback) {
+            callback({
+              watchDashSettings: {
+                settings: {
+                  enabled: true,
+                  speedControls: false,
+                  qualityDiagnostics: true,
+                  youtubeQualityControls: false
+                }
+              }
+            });
+          },
+          set() {}
+        },
+        onChanged: {
+          addListener() {}
+        }
+      }
+    },
+    document: {
+      addEventListener() {},
+      querySelector() {
+        return null;
+      },
+      querySelectorAll() {
+        return [];
+      },
+      documentElement: {
+        appendChild() {}
+      },
+      createElement(tagName) {
+        return { tagName, className: "", textContent: "", remove() {} };
+      }
+    },
+    window: {
+      addEventListener() {},
+      setTimeout() {
+        return 1;
+      },
+      clearTimeout() {},
+      setInterval() {}
+    },
+    MutationObserver: class {
+      observe() {
+        observed = true;
+      }
+    },
+    WatchDashMedia: {
+      findActiveVideo() {
+        return video;
+      },
+      listVideos() {
+        return [video];
+      }
+    },
+    WatchDashAutomation: {
+      findActionTarget() {
+        return null;
+      },
+      clickTarget() {}
+    },
+    WatchDashPlatforms: [
+      {
+        id: "test",
+        hostPatterns: ["example.test"],
+        actions: []
+      }
+    ]
+  });
+
+  assert.strictEqual(observed, true);
+  assert.strictEqual(video.preload, "metadata");
+}
+
 function testYouTubeBridgeOriginAndQuality() {
   const listeners = [];
   const responses = [];
@@ -362,6 +469,7 @@ function testActiveVideoSelectionPreservesFirstTie() {
 
 testSettingsStorageEnvelope();
 testAutomationTextFallbackGate();
+testQualityDiagnosticsDoNotMutatePreload();
 testYouTubeBridgeOriginAndQuality();
 testYouTubeSelectorsFromPlayerProbe();
 testYouTubeAdOverlayDetectionAndJumpFallback();
