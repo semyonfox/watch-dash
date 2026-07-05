@@ -1,4 +1,6 @@
 (function registerWatchDashAutomation(root) {
+  const clickableSelector = "button, a, [role='button'], input[type='button'], input[type='submit']";
+
   function findActionTarget(action, options) {
     for (const selector of action.selectors || []) {
       const matches = queryElements(selector);
@@ -13,16 +15,16 @@
       return null;
     }
 
-    return findByText(action.text || []);
+    return findByText(action.text || [], options && options.textFallbackRoot);
   }
 
-  function findByText(labels) {
-    if (labels.length === 0) {
+  function findByText(labels, scopeRoot) {
+    if (labels.length === 0 || scopeRoot === null) {
       return null;
     }
 
     const wanted = labels.map(normalizeText);
-    const elements = queryElements("button, a, [role='button'], input[type='button'], input[type='submit']");
+    const elements = queryElements(clickableSelector, scopeRoot || document);
 
     return elements.find((element) => {
       const target = resolveClickableElement(element);
@@ -46,9 +48,15 @@
     }) || null;
   }
 
-  function queryElements(selector) {
+  function queryElements(selector, root) {
+    const scope = root || document;
+
+    if (!scope || typeof scope.querySelectorAll !== "function") {
+      return [];
+    }
+
     try {
-      return Array.from(document.querySelectorAll(selector));
+      return Array.from(scope.querySelectorAll(selector));
     } catch (error) {
       return [];
     }
@@ -76,7 +84,7 @@
       return null;
     }
 
-    return Array.from(element.querySelectorAll("button, a, [role='button'], input[type='button'], input[type='submit']"))
+    return Array.from(element.querySelectorAll(clickableSelector))
       .find(isClickable) || null;
   }
 

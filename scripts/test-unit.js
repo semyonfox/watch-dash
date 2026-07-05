@@ -89,6 +89,54 @@ function testAutomationTextFallbackGate() {
   assert.strictEqual(automation.findActionTarget(action, { allowTextFallback: true }), element);
 }
 
+function testAutomationTextFallbackCanBeScopedToPlayerRoot() {
+  function makeButton(label) {
+    return {
+      disabled: false,
+      value: "",
+      textContent: label,
+      checkVisibility: () => true,
+      closest: () => null,
+      getAttribute(name) {
+        return name === "aria-label" ? label : null;
+      },
+      getBoundingClientRect() {
+        return { width: 100, height: 32 };
+      },
+      querySelectorAll() {
+        return [];
+      }
+    };
+  }
+
+  const unrelatedResume = makeButton("Resume browsing carousel");
+  const playerResume = makeButton("Resume episode");
+  const playerRoot = {
+    querySelectorAll(selector) {
+      return selector === "button, a, [role='button'], input[type='button'], input[type='submit']" ?
+        [playerResume] :
+        [];
+    }
+  };
+  const context = loadScripts(["src/content/automation.js"], {
+    document: {
+      querySelectorAll(selector) {
+        return selector === "button, a, [role='button'], input[type='button'], input[type='submit']" ?
+          [unrelatedResume, playerResume] :
+          [];
+      }
+    },
+    getComputedStyle() {
+      return { visibility: "visible", display: "block", opacity: "1" };
+    }
+  });
+  const automation = context.WatchDashAutomation;
+  const action = { selectors: [], text: ["Resume"] };
+
+  assert.strictEqual(automation.findActionTarget(action, { allowTextFallback: true, textFallbackRoot: playerRoot }), playerResume);
+  assert.strictEqual(automation.findActionTarget(action, { allowTextFallback: true, textFallbackRoot: null }), null);
+}
+
 function testQualityDiagnosticsDoNotMutatePreload() {
   const video = {
     playbackRate: 1,
@@ -469,6 +517,7 @@ function testActiveVideoSelectionPreservesFirstTie() {
 
 testSettingsStorageEnvelope();
 testAutomationTextFallbackGate();
+testAutomationTextFallbackCanBeScopedToPlayerRoot();
 testQualityDiagnosticsDoNotMutatePreload();
 testYouTubeBridgeOriginAndQuality();
 testYouTubeSelectorsFromPlayerProbe();
