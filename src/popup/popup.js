@@ -40,6 +40,7 @@
   let activePlaybackSettingsUrl = null;
   let pendingStoredSettings = null;
   let settingsPersistTimer = null;
+  let lastStatusAnnouncement = "";
 
   const elements = {};
 
@@ -76,6 +77,7 @@
       "resolution",
       "frames",
       "lastAction",
+      "statusLiveRegion",
       "enableSite"
     ]) {
       elements[id] = document.getElementById(id);
@@ -304,6 +306,7 @@
     elements.resolution.textContent = "Resolution: unavailable";
     elements.frames.textContent = "Frames: unavailable";
     elements.lastAction.textContent = "Last action: none";
+    announceStatusChange("WatchDash disconnected. Open a supported streaming tab.");
   }
 
   function renderStatus(status) {
@@ -319,13 +322,15 @@
     renderServiceMenus(status);
     elements.enableSite.hidden = true;
 
+    let resolutionText;
     if (status.videoWidth && status.videoHeight) {
       const targetText = settingsTools.qualityTargetText(status.qualityTargetHeight || settings.qualityTargetHeight);
       const targetState = status.qualityTargetMet === true ? "met" : "below target";
-      elements.resolution.textContent = `Resolution: ${status.videoWidth}x${status.videoHeight} (${targetState}, target ${targetText})`;
+      resolutionText = `Resolution: ${status.videoWidth}x${status.videoHeight} (${targetState}, target ${targetText})`;
     } else {
-      elements.resolution.textContent = `Resolution: unavailable (target ${settingsTools.qualityTargetText(settings.qualityTargetHeight)})`;
+      resolutionText = `Resolution: unavailable (target ${settingsTools.qualityTargetText(settings.qualityTargetHeight)})`;
     }
+    elements.resolution.textContent = resolutionText;
 
     if (Number.isFinite(status.droppedVideoFrames) && Number.isFinite(status.totalVideoFrames)) {
       elements.frames.textContent = `Frames: ${status.droppedVideoFrames} dropped / ${status.totalVideoFrames} total`;
@@ -334,6 +339,29 @@
     }
 
     elements.lastAction.textContent = status.lastAction ? `Last action: ${status.lastAction}` : "Last action: none";
+    announceStatusChange(statusAnnouncementText(status, speed, resolutionText));
+  }
+
+  function statusAnnouncementText(status, speed, resolutionText) {
+    const parts = [
+      `${status.platformLabel} active at ${Number(speed).toFixed(2)}x`,
+      resolutionText
+    ];
+
+    if (status.lastAction) {
+      parts.push(`Last action: ${status.lastAction}`);
+    }
+
+    return parts.join(". ");
+  }
+
+  function announceStatusChange(message) {
+    if (!elements.statusLiveRegion || !message || message === lastStatusAnnouncement) {
+      return;
+    }
+
+    lastStatusAnnouncement = message;
+    elements.statusLiveRegion.textContent = message;
   }
 
   function renderPlaybackSettingsButton(status) {

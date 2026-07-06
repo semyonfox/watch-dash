@@ -148,13 +148,14 @@
         <button id="openQuality" class="secondary-action wide-action" type="button">Playback Settings</button>
       </section>
 
-      <section class="status panel" aria-live="polite">
+      <section class="status panel" aria-labelledby="playbackStatusHeading">
         <div class="panel-title">
-          <h2>Playback Status</h2>
+          <h2 id="playbackStatusHeading">Playback Status</h2>
         </div>
         <div id="resolution">Resolution: unavailable</div>
         <div id="frames">Frames: unavailable</div>
         <div id="lastAction">Last action: none</div>
+        <div id="statusLiveRegion" class="sr-only" aria-live="polite" aria-atomic="true"></div>
         <button id="enableSite" class="secondary-action wide-action" type="button" hidden>Enable on This Site</button>
       </section>
     </main>
