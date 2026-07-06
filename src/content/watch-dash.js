@@ -271,7 +271,10 @@
         continue;
       }
 
-      const target = automation.findActionTarget(action, { allowTextFallback });
+      const target = automation.findActionTarget(action, {
+        allowTextFallback,
+        textFallbackRoot: getTextFallbackRoot(video)
+      });
       if (!target) {
         const fallbackAction = runAutomationFallback(action, video);
 
@@ -361,6 +364,23 @@
     }
 
     return Boolean(currentPlatform.allowVideoSurfaceFallback && isMeaningfulAutomationVideo(video));
+  }
+
+  function getTextFallbackRoot(video) {
+    if (!video || typeof video.closest !== "function") {
+      return null;
+    }
+
+    return video.closest([
+      "#movie_player",
+      ".html5-video-player",
+      "[data-uia='video-canvas']",
+      "[data-uia='player']",
+      "[data-testid*='player']",
+      "[class*='player']",
+      "main",
+      "section"
+    ].join(", ")) || video.parentElement || null;
   }
 
   function pathMatchesPattern(pathname, pattern) {
