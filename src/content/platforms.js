@@ -66,6 +66,27 @@
     return score >= 2;
   }
 
+  function isPrimeVideoPage({ host, path }) {
+    const normalizedHost = String(host || "").replace(/^www\./, "").toLowerCase();
+    const normalizedPath = String(path || "").toLowerCase();
+
+    if (normalizedHost === "primevideo.com" || normalizedHost.endsWith(".primevideo.com")) {
+      return true;
+    }
+
+    if (!/^amazon\./.test(normalizedHost)) {
+      return false;
+    }
+
+    return [
+      "/gp/video/",
+      "/video/detail/",
+      "/detail/",
+      "/amazonvideo/",
+      "/primevideo/"
+    ].some((pattern) => normalizedPath.startsWith(pattern));
+  }
+
   const commonContinuePlaying = action({
     id: "continue-playing",
     setting: "continuePlaying",
@@ -395,6 +416,7 @@
         "amazon.com.mx",
         "amazon.nl"
       ],
+      detect: isPrimeVideoPage,
       actions: primeVideoActions,
       watchUrlPatterns: [
         "/detail/",
