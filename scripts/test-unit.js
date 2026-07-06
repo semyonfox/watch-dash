@@ -355,6 +355,29 @@ function testYouTubeSelectorsFromPlayerProbe() {
   assert.strictEqual(nextVideo.maxRemainingSecondsBeforeEnded, 8);
 }
 
+function testPrimeVideoDetectorAvoidsGeneralAmazonPages() {
+  const context = loadScripts(["src/content/platforms.js"], {
+    document: {
+      querySelector() {
+        return null;
+      }
+    },
+    location: {
+      hostname: "www.amazon.com",
+      pathname: "/"
+    }
+  });
+  const primeVideo = context.WatchDashPlatforms.find((platform) => platform.id === "prime-video");
+
+  assert(primeVideo.hostPatterns.includes("primevideo.com"));
+  assert(primeVideo.hostPatterns.includes("amazon.com"));
+  assert.strictEqual(primeVideo.detect({ host: "www.amazon.com", path: "/" }), false);
+  assert.strictEqual(primeVideo.detect({ host: "www.amazon.com", path: "/s?k=headphones" }), false);
+  assert.strictEqual(primeVideo.detect({ host: "www.amazon.com", path: "/gp/video/detail/B012345" }), true);
+  assert.strictEqual(primeVideo.detect({ host: "www.amazon.co.uk", path: "/video/detail/B012345" }), true);
+  assert.strictEqual(primeVideo.detect({ host: "watch.primevideo.com", path: "/detail/0ABC" }), true);
+}
+
 function testYouTubeAdOverlayDetectionAndJumpFallback() {
   const visibleElement = {
     checkVisibility: () => true,
@@ -521,6 +544,7 @@ testAutomationTextFallbackCanBeScopedToPlayerRoot();
 testQualityDiagnosticsDoNotMutatePreload();
 testYouTubeBridgeOriginAndQuality();
 testYouTubeSelectorsFromPlayerProbe();
+testPrimeVideoDetectorAvoidsGeneralAmazonPages();
 testYouTubeAdOverlayDetectionAndJumpFallback();
 testYouTubeBridgeQueueClearsOnInjectionFailure();
 testActiveVideoSelectionUsesScorePriority();

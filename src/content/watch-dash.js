@@ -44,7 +44,12 @@
     return platforms.find((platform) => {
       const hostPatterns = platform.hostPatterns || [];
       const hostMatches = hostPatterns.some((pattern) => host === pattern || host.endsWith(`.${pattern}`));
-      const detectorMatches = typeof platform.detect === "function" && runPlatformDetector(platform);
+      const hasDetector = typeof platform.detect === "function";
+      const detectorMatches = hasDetector && runPlatformDetector(platform);
+
+      if (hasDetector && hostPatterns.length > 0) {
+        return hostMatches && detectorMatches;
+      }
 
       return hostMatches || detectorMatches;
     }) || null;
