@@ -137,6 +137,84 @@ function testAutomationTextFallbackCanBeScopedToPlayerRoot() {
   assert.strictEqual(automation.findActionTarget(action, { allowTextFallback: true, textFallbackRoot: null }), null);
 }
 
+function testAutomationSelectorRootsAndQueryCacheAvoidRepeatedScans() {
+  const target = {
+    disabled: false,
+    value: "",
+    textContent: "Skip Intro",
+    checkVisibility: () => true,
+    closest: () => null,
+    getAttribute() {
+      return null;
+    },
+    getBoundingClientRect() {
+      return { width: 80, height: 24 };
+    },
+    querySelectorAll() {
+      return [];
+    }
+  };
+  const playerRootQueries = [];
+  const documentQueries = [];
+  const playerRoot = {
+    querySelectorAll(selector) {
+      playerRootQueries.push(selector);
+      return [];
+    }
+  };
+  const context = loadScripts(["src/content/automation.js"], {
+    document: {
+      querySelectorAll(selector) {
+        documentQueries.push(selector);
+        return selector === "button" ? [target] : [];
+      }
+    },
+    getComputedStyle() {
+      return { visibility: "visible", display: "block", opacity: "1" };
+    }
+  });
+  const automation = context.WatchDashAutomation;
+  const queryCache = new WeakMap();
+  const action = { selectors: ["button", "button"], text: [] };
+
+  assert.strictEqual(automation.findActionTarget(action, {
+    allowTextFallback: false,
+    selectorRoots: [playerRoot],
+    queryCache
+  }), target);
+  assert.deepStrictEqual(playerRootQueries, ["button"]);
+  assert.deepStrictEqual(documentQueries, ["button"]);
+
+  assert.strictEqual(automation.findActionTarget({ selectors: ["button"], text: [] }, {
+    allowTextFallback: false,
+    selectorRoots: [playerRoot],
+    queryCache
+  }), target);
+  assert.deepStrictEqual(playerRootQueries, ["button"]);
+  assert.deepStrictEqual(documentQueries, ["button"]);
+}
+
+function testPlatformActionsDedupeSelectorsAtRegistration() {
+  const context = loadScripts(["src/content/platforms.js"], {
+    document: {
+      title: "",
+      querySelector() {
+        return null;
+      }
+    },
+    location: {
+      hostname: "www.amazon.com",
+      pathname: "/gp/video/detail/B012345"
+    }
+  });
+  const primeVideo = context.WatchDashPlatforms.find((platform) => platform.id === "prime-video");
+
+  for (const action of primeVideo.actions) {
+    assert.strictEqual(new Set(action.selectors).size, action.selectors.length);
+    assert.strictEqual(new Set(action.text).size, action.text.length);
+  }
+}
+
 function testQualityDiagnosticsDoNotMutatePreload() {
   const video = {
     playbackRate: 1,
@@ -557,6 +635,8 @@ function testPopupStatusLiveRegionStructure() {
 testSettingsStorageEnvelope();
 testAutomationTextFallbackGate();
 testAutomationTextFallbackCanBeScopedToPlayerRoot();
+testAutomationSelectorRootsAndQueryCacheAvoidRepeatedScans();
+testPlatformActionsDedupeSelectorsAtRegistration();
 testQualityDiagnosticsDoNotMutatePreload();
 testYouTubeBridgeOriginAndQuality();
 testYouTubeSelectorsFromPlayerProbe();

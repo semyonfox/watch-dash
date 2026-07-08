@@ -1,17 +1,38 @@
 (function registerWatchDashPlatforms(root) {
   function action(config) {
-    return Object.assign({
+    const actionConfig = Object.assign({
       cooldownMs: 0,
       selectors: [],
       text: []
     }, config);
+
+    return Object.assign({}, actionConfig, {
+      selectors: uniqueList(actionConfig.selectors),
+      text: uniqueList(actionConfig.text)
+    });
   }
 
   function extendAction(base, extension) {
-    return Object.assign({}, base, extension || {}, {
+    return action(Object.assign({}, base, extension || {}, {
       selectors: [].concat(extension && extension.selectors ? extension.selectors : [], base.selectors || []),
       text: [].concat(extension && extension.text ? extension.text : [], base.text || [])
-    });
+    }));
+  }
+
+  function uniqueList(values) {
+    const seen = new Set();
+    const items = [];
+
+    for (const value of values || []) {
+      if (seen.has(value)) {
+        continue;
+      }
+
+      seen.add(value);
+      items.push(value);
+    }
+
+    return items;
   }
 
   function hasElement(selector) {
