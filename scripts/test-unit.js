@@ -137,6 +137,57 @@ function testAutomationTextFallbackCanBeScopedToPlayerRoot() {
   assert.strictEqual(automation.findActionTarget(action, { allowTextFallback: true, textFallbackRoot: null }), null);
 }
 
+function testAutomationSkipsElementsWithPatchedVisibilityApis() {
+  const stableElement = {
+    disabled: false,
+    value: "",
+    textContent: "Resume episode",
+    checkVisibility: () => true,
+    closest: () => null,
+    getAttribute(name) {
+      return name === "aria-label" ? "Resume episode" : null;
+    },
+    getBoundingClientRect() {
+      return { width: 100, height: 32 };
+    },
+    querySelectorAll() {
+      return [];
+    }
+  };
+  const patchedElement = {
+    disabled: false,
+    value: "",
+    textContent: "Resume episode",
+    checkVisibility: () => true,
+    closest: () => null,
+    getAttribute(name) {
+      return name === "aria-label" ? "Resume episode" : null;
+    },
+    getBoundingClientRect() {
+      throw new Error("patched DOM failure");
+    },
+    querySelectorAll() {
+      return [];
+    }
+  };
+  const context = loadScripts(["src/content/automation.js"], {
+    document: {
+      querySelectorAll(selector) {
+        return selector === "button, a, [role='button'], input[type='button'], input[type='submit']" ?
+          [patchedElement, stableElement] :
+          [];
+      }
+    },
+    getComputedStyle() {
+      return { visibility: "visible", display: "block", opacity: "1" };
+    }
+  });
+  const automation = context.WatchDashAutomation;
+  const action = { selectors: [], text: ["Resume"] };
+
+  assert.strictEqual(automation.findActionTarget(action), stableElement);
+}
+
 function testQualityDiagnosticsDoNotMutatePreload() {
   const video = {
     playbackRate: 1,
@@ -557,6 +608,7 @@ function testPopupStatusLiveRegionStructure() {
 testSettingsStorageEnvelope();
 testAutomationTextFallbackGate();
 testAutomationTextFallbackCanBeScopedToPlayerRoot();
+testAutomationSkipsElementsWithPatchedVisibilityApis();
 testQualityDiagnosticsDoNotMutatePreload();
 testYouTubeBridgeOriginAndQuality();
 testYouTubeSelectorsFromPlayerProbe();
