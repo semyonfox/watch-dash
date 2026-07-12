@@ -264,6 +264,9 @@
       lastTextFallbackScanAt = now;
     }
 
+    const selectorRoots = getSelectorRoots(video);
+    const selectorQueryCache = typeof WeakMap === "function" ? new WeakMap() : null;
+
     for (const action of currentPlatform.actions) {
       if (!settings[action.setting]) {
         continue;
@@ -278,6 +281,8 @@
 
       const target = automation.findActionTarget(action, {
         allowTextFallback,
+        selectorRoots,
+        queryCache: selectorQueryCache,
         textFallbackRoot: getTextFallbackRoot(video)
       });
       if (!target) {
@@ -369,6 +374,18 @@
     }
 
     return Boolean(currentPlatform.allowVideoSurfaceFallback && isMeaningfulAutomationVideo(video));
+  }
+
+  function getSelectorRoots(video) {
+    const roots = [];
+    const textRoot = getTextFallbackRoot(video);
+
+    if (textRoot) {
+      roots.push(textRoot);
+    }
+
+    roots.push(document);
+    return roots;
   }
 
   function getTextFallbackRoot(video) {
