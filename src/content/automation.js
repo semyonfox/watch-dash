@@ -2,12 +2,16 @@
   const clickableSelector = "button, a, [role='button'], input[type='button'], input[type='submit']";
 
   function findActionTarget(action, options) {
-    for (const selector of action.selectors || []) {
-      const matches = queryElements(selector);
-      const target = matches.map(resolveClickableElement).find(Boolean);
+    const selectorRoots = getSelectorRoots(options && options.selectorRoots);
 
-      if (target) {
-        return target;
+    for (const selector of action.selectors || []) {
+      for (const root of selectorRoots) {
+        const matches = queryElements(selector, root, options && options.queryCache);
+        const target = matches.map(resolveClickableElement).find(Boolean);
+
+        if (target) {
+          return target;
+        }
       }
     }
 
@@ -16,6 +20,23 @@
     }
 
     return findByText(action.text || [], options && options.textFallbackRoot);
+  }
+
+  function getSelectorRoots(roots) {
+    const candidates = Array.isArray(roots) && roots.length > 0 ? roots : [document];
+    const seen = new Set();
+    const uniqueRoots = [];
+
+    for (const root of candidates.concat(document)) {
+      if (!root || seen.has(root)) {
+        continue;
+      }
+
+      seen.add(root);
+      uniqueRoots.push(root);
+    }
+
+    return uniqueRoots;
   }
 
   function findByText(labels, scopeRoot) {
@@ -48,13 +69,34 @@
     }) || null;
   }
 
-  function queryElements(selector, root) {
+  function queryElements(selector, root, cache) {
     const scope = root || document;
 
     if (!scope || typeof scope.querySelectorAll !== "function") {
       return [];
     }
 
+    if (cache) {
+      let rootCache = cache.get(scope);
+
+      if (!rootCache) {
+        rootCache = new Map();
+        cache.set(scope, rootCache);
+      }
+
+      if (rootCache.has(selector)) {
+        return rootCache.get(selector);
+      }
+
+      const results = queryElementsUncached(selector, scope);
+      rootCache.set(selector, results);
+      return results;
+    }
+
+    return queryElementsUncached(selector, scope);
+  }
+
+  function queryElementsUncached(selector, scope) {
     try {
       return Array.from(scope.querySelectorAll(selector));
     } catch (error) {
