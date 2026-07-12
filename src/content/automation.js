@@ -153,12 +153,24 @@
       }
     }
 
-    const rect = element.getBoundingClientRect();
+    let rect;
+    try {
+      rect = element.getBoundingClientRect();
+    } catch (error) {
+      return false;
+    }
+
     if (rect.width <= 0 || rect.height <= 0) {
       return false;
     }
 
-    const style = getComputedStyle(element);
+    let style;
+    try {
+      style = getComputedStyle(element);
+    } catch (error) {
+      return false;
+    }
+
     return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0.01;
   }
 
