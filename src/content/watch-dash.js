@@ -34,6 +34,8 @@
   let settingsPersistTimer = null;
   let activeVideo = null;
   let lastTextFallbackScanAt = 0;
+  let observer = null;
+  let observedRoot = null;
 
   const actionCooldowns = new Map();
   let adSpeedRestoreRates = new WeakMap();
@@ -563,9 +565,46 @@
   function tick() {
     currentPlatform = detectPlatform();
     activeVideo = media.findActiveVideo();
+    refreshObserver(activeVideo);
     applySpeed();
     applyQualityHints(activeVideo);
     runAutomation(activeVideo);
+  }
+
+  function getObserverRoot(video) {
+    return getTextFallbackRoot(video) || document.documentElement;
+  }
+
+  function refreshObserver(video) {
+    if (!observer) {
+      return;
+    }
+
+    const nextRoot = getObserverRoot(video);
+    if (nextRoot === observedRoot) {
+      return;
+    }
+
+    if (typeof observer.disconnect === "function") {
+      observer.disconnect();
+    }
+    observedRoot = nextRoot;
+    observer.observe(observedRoot, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+      attributeFilter: [
+        "aria-label",
+        "class",
+        "data-automation-id",
+        "data-test-id",
+        "data-testid",
+        "data-uia",
+        "role",
+        "style",
+        "title"
+      ]
+    });
   }
 
   function scheduleTick() {
@@ -578,6 +617,12 @@
       scheduled = false;
       tick();
     }, 250);
+  }
+
+  function scheduleRecoveryTick() {
+    if (!scheduled) {
+      scheduleTick();
+    }
   }
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -626,25 +671,10 @@
   document.addEventListener("keydown", handleHotkey, true);
   window.addEventListener("pagehide", flushSettingsPersist);
 
-  const observer = new MutationObserver(scheduleTick);
-  observer.observe(document.documentElement, {
-    attributes: true,
-    childList: true,
-    subtree: true,
-    attributeFilter: [
-      "aria-label",
-      "class",
-      "data-automation-id",
-      "data-test-id",
-      "data-testid",
-      "data-uia",
-      "role",
-      "style",
-      "title"
-    ]
-  });
+  observer = new MutationObserver(scheduleTick);
+  refreshObserver(null);
 
-  window.setInterval(tick, 1000);
+  window.setInterval(scheduleRecoveryTick, 1000);
   loadSettings();
 
   function showSpeedToast(speed) {

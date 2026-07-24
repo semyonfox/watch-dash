@@ -373,6 +373,62 @@ function testQualityDiagnosticsDoNotMutatePreload() {
   assert.strictEqual(video.preload, "metadata");
 }
 
+function testContentSchedulerCoalescesMutationsAndScopesObserver() {
+  const timeouts = [];
+  const observerInstances = [];
+  const playerRoot = { querySelectorAll() { return []; } };
+  const video = {
+    playbackRate: 1,
+    defaultPlaybackRate: 1,
+    paused: false,
+    ended: false,
+    duration: 600,
+    currentTime: 10,
+    closest() { return playerRoot; },
+    getBoundingClientRect() { return { width: 1280, height: 720 }; }
+  };
+  const documentRoot = { appendChild() {} };
+
+  loadScripts([
+    "src/shared/defaults.js",
+    "src/shared/settings.js",
+    "src/content/watch-dash.js"
+  ], {
+    location: { hostname: "example.test", pathname: "/watch", href: "https://example.test/watch" },
+    chrome: {
+      runtime: { lastError: null, onMessage: { addListener() {} } },
+      storage: { sync: { get(keys, callback) { callback({}); }, set() {} }, onChanged: { addListener() {} } }
+    },
+    document: {
+      addEventListener() {}, querySelector() { return null; }, querySelectorAll() { return []; },
+      documentElement: documentRoot,
+      createElement(tagName) { return { tagName, className: "", textContent: "", remove() {} }; }
+    },
+    window: {
+      addEventListener() {},
+      setTimeout(callback, delay) { timeouts.push({ callback, delay }); return timeouts.length; },
+      clearTimeout() {}, setInterval() {}
+    },
+    MutationObserver: class {
+      constructor(callback) { this.callback = callback; this.targets = []; observerInstances.push(this); }
+      disconnect() { this.disconnected = true; }
+      observe(target) { this.targets.push(target); }
+    },
+    WatchDashMedia: { findActiveVideo() { return video; }, listVideos() { return [video]; } },
+    WatchDashAutomation: { findActionTarget() { return null; }, clickElement() {} },
+    WatchDashPlatforms: [{ id: "test", hostPatterns: ["example.test"], actions: [] }]
+  });
+
+  const observer = observerInstances[0];
+  assert.strictEqual(observer.targets[0], documentRoot);
+  assert.strictEqual(observer.targets[1], playerRoot);
+  observer.callback();
+  observer.callback();
+  observer.callback();
+  assert.strictEqual(timeouts.length, 1);
+  assert.strictEqual(timeouts[0].delay, 250);
+}
+
 function testYouTubeBridgeOriginAndQuality() {
   const listeners = [];
   const responses = [];
@@ -690,6 +746,7 @@ testAutomationSkipsElementsWithPatchedVisibilityApis();
 testAutomationSelectorRootsAndQueryCacheAvoidRepeatedScans();
 testPlatformActionsDedupeSelectorsAtRegistration();
 testQualityDiagnosticsDoNotMutatePreload();
+testContentSchedulerCoalescesMutationsAndScopesObserver();
 testYouTubeBridgeOriginAndQuality();
 testYouTubeSelectorsFromPlayerProbe();
 testPrimeVideoDetectorAvoidsGeneralAmazonPages();
