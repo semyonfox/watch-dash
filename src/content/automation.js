@@ -208,6 +208,7 @@
   root.WatchDashAutomation = Object.freeze({
     findActionTarget,
     clickElement,
+    isVisibleElement,
     queryElements,
     normalizeText
   });

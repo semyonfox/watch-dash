@@ -17,7 +17,7 @@
           </div>
         </div>
         <label class="power-switch" title="Enable WatchDash">
-          <input id="enabled" type="checkbox" aria-label="Enable WatchDash">
+          <input id="enabled" data-setting="enabled" type="checkbox" aria-label="Enable WatchDash">
           <span class="switch-track" aria-hidden="true">
             <span class="switch-thumb"></span>
           </span>
@@ -37,7 +37,7 @@
           </label>
           <button id="increase" class="step-button" type="button" aria-label="Increase speed">+</button>
         </div>
-        <input id="speed" class="range" type="range" min="0.25" max="16" step="0.05">
+        <input id="speed" class="range" type="range" min="0.25" max="16" step="0.05" aria-label="Target playback speed">
         <div class="speed-tools">
           <label class="field">
             <span>Step</span>
@@ -62,42 +62,42 @@
         </div>
         <div class="toggle-grid">
           <label class="toggle-card">
-            <input id="speedControls" type="checkbox">
+            <input id="speedControls" data-setting="speedControls" type="checkbox">
             <span class="tile-title">Speed Control</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
           <label class="toggle-card">
-            <input id="qualityDiagnostics" type="checkbox">
+            <input id="qualityDiagnostics" data-setting="qualityDiagnostics" type="checkbox">
             <span class="tile-title">Quality</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
           <label class="toggle-card">
-            <input id="hotkeys" type="checkbox">
+            <input id="hotkeys" data-setting="hotkeys" type="checkbox">
             <span class="tile-title">Hotkeys</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
           <label class="toggle-card" data-action-setting="skipIntros">
-            <input id="skipIntros" type="checkbox">
+            <input id="skipIntros" data-setting="skipIntros" type="checkbox">
             <span class="tile-title">Intros</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
           <label class="toggle-card" data-action-setting="skipRecaps">
-            <input id="skipRecaps" type="checkbox">
+            <input id="skipRecaps" data-setting="skipRecaps" type="checkbox">
             <span class="tile-title">Recaps</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
           <label class="toggle-card" data-action-setting="skipCredits">
-            <input id="skipCredits" type="checkbox">
+            <input id="skipCredits" data-setting="skipCredits" type="checkbox">
             <span class="tile-title">Credits</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
           <label class="toggle-card" data-action-setting="autoNextEpisode">
-            <input id="autoNextEpisode" type="checkbox">
+            <input id="autoNextEpisode" data-setting="autoNextEpisode" type="checkbox">
             <span class="tile-title">Next Episode</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
           <label class="toggle-card" data-action-setting="continuePlaying">
-            <input id="continuePlaying" type="checkbox">
+            <input id="continuePlaying" data-setting="continuePlaying" type="checkbox">
             <span class="tile-title">Continue</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
@@ -111,17 +111,17 @@
         </div>
         <div class="toggle-grid">
           <label class="toggle-card">
-            <input id="youtubeQualityControls" type="checkbox">
+            <input id="youtubeQualityControls" data-setting="youtubeQualityControls" type="checkbox">
             <span class="tile-title">Set Quality</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
           <label class="toggle-card">
-            <input id="youtubeAutoSkipAds" type="checkbox">
+            <input id="youtubeAutoSkipAds" data-setting="youtubeAutoSkipAds" type="checkbox">
             <span class="tile-title">Skip Ads</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
           <label class="toggle-card">
-            <input id="youtubeAdSpeedup" type="checkbox">
+            <input id="youtubeAdSpeedup" data-setting="youtubeAdSpeedup" type="checkbox">
             <span class="tile-title">Ad Speed</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
@@ -137,7 +137,7 @@
           <h2>Quality Target</h2>
           <span id="qualityTargetLabel">1080p</span>
         </div>
-        <input id="qualityTarget" class="range" type="range" min="0" max="4" step="1">
+        <input id="qualityTarget" class="range" type="range" min="0" max="4" step="1" aria-label="Quality target">
         <div class="quality-ticks">
           <span>480</span>
           <span>720</span>

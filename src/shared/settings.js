@@ -14,24 +14,10 @@
     const input = rawSettings && typeof rawSettings === "object" ? rawSettings : {};
     const next = {};
 
-    for (const key of Object.keys(defaults.defaultSettings)) {
-      next[key] = Object.prototype.hasOwnProperty.call(input, key) ?
-        input[key] :
-        defaults.defaultSettings[key];
+    for (const [key, defaultValue] of Object.entries(defaults.defaultSettings)) {
+      const value = Object.prototype.hasOwnProperty.call(input, key) ? input[key] : defaultValue;
+      next[key] = typeof defaultValue === "boolean" ? Boolean(value) : value;
     }
-
-    next.enabled = Boolean(next.enabled);
-    next.speedControls = Boolean(next.speedControls);
-    next.skipIntros = Boolean(next.skipIntros);
-    next.skipRecaps = Boolean(next.skipRecaps);
-    next.skipCredits = Boolean(next.skipCredits);
-    next.autoNextEpisode = Boolean(next.autoNextEpisode);
-    next.continuePlaying = Boolean(next.continuePlaying);
-    next.qualityDiagnostics = Boolean(next.qualityDiagnostics);
-    next.youtubeQualityControls = Boolean(next.youtubeQualityControls);
-    next.youtubeAdSpeedup = Boolean(next.youtubeAdSpeedup);
-    next.youtubeAutoSkipAds = Boolean(next.youtubeAutoSkipAds);
-    next.hotkeys = Boolean(next.hotkeys);
     next.minSpeed = clampNumber(next.minSpeed, minSpeedLimit, maxSpeedLimit, defaults.defaultSettings.minSpeed);
     next.maxSpeed = clampNumber(next.maxSpeed, minSpeedLimit, maxSpeedLimit, defaults.defaultSettings.maxSpeed);
 

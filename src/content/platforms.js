@@ -112,6 +112,7 @@
     id: "continue-playing",
     setting: "continuePlaying",
     label: "Continue playing",
+    controlLabel: "Continue",
     selectors: [
       "button[aria-label*='Continue Playing' i]",
       "button[aria-label*='Continue Watching' i]",
@@ -139,6 +140,7 @@
     id: "skip-intro",
     setting: "skipIntros",
     label: "Skip intro",
+    controlLabel: "Intros",
     selectors: [
       "button[aria-label*='Skip Intro' i]",
       "[role='button'][aria-label*='Skip Intro' i]",
@@ -160,6 +162,7 @@
     id: "skip-recap",
     setting: "skipRecaps",
     label: "Skip recap",
+    controlLabel: "Recaps",
     selectors: [
       "button[aria-label*='Skip Recap' i]",
       "[role='button'][aria-label*='Skip Recap' i]",
@@ -181,6 +184,7 @@
     id: "skip-credits",
     setting: "skipCredits",
     label: "Skip credits",
+    controlLabel: "Credits",
     selectors: [
       "button[aria-label*='Skip Credits' i]",
       "button[aria-label*='Skip Credit' i]",
@@ -206,6 +210,7 @@
     setting: "autoNextEpisode",
     type: "nextEpisode",
     label: "Next episode",
+    controlLabel: "Next Episode",
     cooldownMs: 90000,
     selectors: [
       "button[aria-label*='Next Episode' i]",
@@ -237,6 +242,22 @@
     commonSkipCredits,
     commonNextEpisode
   ];
+
+  function platform(config) {
+    return Object.assign({
+      actions: commonActions,
+      allowVideoSurfaceFallback: false
+    }, config);
+  }
+
+  function withTestIdSelectors(actions) {
+    return actions.map((item) => extendAction(item, {
+      selectors: [
+        `button[data-testid*='${item.id}' i]`,
+        `[data-testid*='${item.id}' i]`
+      ]
+    }));
+  }
 
   const netflixActions = [
     extendAction(commonContinuePlaying, {
@@ -296,19 +317,8 @@
     })
   ];
 
-  const primeVideoActions = commonActions.map((item) => extendAction(item, {
-    selectors: [
-      `button[data-testid*='${item.id}' i]`,
-      `[data-testid*='${item.id}' i]`
-    ]
-  }));
-
-  const disneyActions = commonActions.map((item) => extendAction(item, {
-    selectors: [
-      `button[data-testid*='${item.id}' i]`,
-      `[data-testid*='${item.id}' i]`
-    ]
-  }));
+  const primeVideoActions = withTestIdSelectors(commonActions);
+  const disneyActions = withTestIdSelectors(commonActions);
 
   const youtubeActions = [
     action({
@@ -350,6 +360,7 @@
       setting: "autoNextEpisode",
       type: "nextEpisode",
       label: "Next video",
+      controlLabel: "Next Video",
       cooldownMs: 90000,
       minProgressBeforeEnded: 0.985,
       maxRemainingSecondsBeforeEnded: 8,
@@ -405,7 +416,7 @@
   ];
 
   root.WatchDashPlatforms = Object.freeze([
-    {
+    platform({
       id: "netflix",
       label: "Netflix",
       hostPatterns: [
@@ -415,10 +426,9 @@
       playbackSettingsUrl: "https://www.netflix.com/settings/playback",
       watchUrlPatterns: [
         "/watch"
-      ],
-      allowVideoSurfaceFallback: false
-    },
-    {
+      ]
+    }),
+    platform({
       id: "prime-video",
       label: "Prime Video",
       hostPatterns: [
@@ -444,10 +454,9 @@
         "/gp/video/",
         "/video/detail/",
         "/watch/"
-      ],
-      allowVideoSurfaceFallback: false
-    },
-    {
+      ]
+    }),
+    platform({
       id: "disney-plus",
       label: "Disney+",
       hostPatterns: [
@@ -459,85 +468,74 @@
         "/movies/",
         "/series/",
         "/browse/entity-"
-      ],
-      allowVideoSurfaceFallback: false
-    },
-    {
+      ]
+    }),
+    platform({
       id: "hbo-max",
       label: "HBO Max / Max",
       hostPatterns: [
         "max.com",
         "hbomax.com"
       ],
-      actions: commonActions,
       watchUrlPatterns: [
         "/video/",
         "/watch/",
         "/movie/",
         "/show/"
-      ],
-      allowVideoSurfaceFallback: false
-    },
-    {
+      ]
+    }),
+    platform({
       id: "hulu",
       label: "Hulu",
       hostPatterns: [
         "hulu.com"
       ],
-      actions: commonActions,
       watchUrlPatterns: [
         "/watch/",
         "/movie/",
         "/series/"
-      ],
-      allowVideoSurfaceFallback: false
-    },
-    {
+      ]
+    }),
+    platform({
       id: "apple-tv-plus",
       label: "Apple TV+",
       hostPatterns: [
         "tv.apple.com"
       ],
-      actions: commonActions,
       watchUrlPatterns: [
         "/watch/",
         "/movie/",
         "/show/",
         "/episode/"
-      ],
-      allowVideoSurfaceFallback: false
-    },
-    {
+      ]
+    }),
+    platform({
       id: "peacock",
       label: "Peacock",
       hostPatterns: [
         "peacocktv.com"
       ],
-      actions: commonActions,
       watchUrlPatterns: [
         "/watch/",
         "/stream-",
         "/movies/",
         "/series/"
-      ],
-      allowVideoSurfaceFallback: false
-    },
-    {
+      ]
+    }),
+    platform({
       id: "paramount-plus",
       label: "Paramount+",
       hostPatterns: [
         "paramountplus.com"
       ],
-      actions: commonActions,
       watchUrlPatterns: [
         "/shows/",
         "/movies/",
         "/video/",
         "/episodes/"
-      ],
-      allowVideoSurfaceFallback: false
-    },
-    {
+      ]
+    }),
+    platform({
       id: "youtube",
       label: "YouTube",
       hostPatterns: [
@@ -553,68 +551,59 @@
         "/watch",
         "/shorts/",
         "/embed/"
-      ],
-      allowVideoSurfaceFallback: false
-    },
-    {
+      ]
+    }),
+    platform({
       id: "crunchyroll",
       label: "Crunchyroll",
       hostPatterns: [
         "crunchyroll.com"
       ],
-      actions: commonActions,
       watchUrlPatterns: [
         "/watch/",
         "/series/",
         "/videos/"
-      ],
-      allowVideoSurfaceFallback: false
-    },
-    {
+      ]
+    }),
+    platform({
       id: "tubi",
       label: "Tubi",
       hostPatterns: [
         "tubi.tv"
       ],
-      actions: commonActions,
       watchUrlPatterns: [
         "/movies/",
         "/tv-shows/",
         "/video/"
-      ],
-      allowVideoSurfaceFallback: false
-    },
-    {
+      ]
+    }),
+    platform({
       id: "roku-channel",
       label: "The Roku Channel",
       hostPatterns: [
         "therokuchannel.roku.com"
       ],
-      actions: commonActions,
       watchUrlPatterns: [
         "/watch/",
         "/details/",
         "/movies/",
         "/tv-shows/"
-      ],
-      allowVideoSurfaceFallback: false
-    },
-    {
+      ]
+    }),
+    platform({
       id: "pluto-tv",
       label: "Pluto TV",
       hostPatterns: [
         "pluto.tv"
       ],
-      actions: commonActions,
       watchUrlPatterns: [
         "/live-tv/",
         "/on-demand/",
         "/movies/",
         "/series/"
-      ],
-      allowVideoSurfaceFallback: false
-    },
-    {
+      ]
+    }),
+    platform({
       id: "jellyfin",
       label: "Jellyfin",
       hostPatterns: [],
@@ -626,6 +615,6 @@
         "/video/"
       ],
       allowVideoSurfaceFallback: true
-    }
+    })
   ]);
 })(globalThis);
