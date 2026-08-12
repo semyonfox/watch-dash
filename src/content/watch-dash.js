@@ -228,7 +228,7 @@
     }
   }
 
-  function applyQualityHints(video) {
+  function applyQualityTarget(video) {
     if (!settings.enabled || !currentPlatform) {
       return;
     }
@@ -240,14 +240,6 @@
     if (currentPlatform.id === "youtube" && youtubeController) {
       youtubeController.applyQualityTarget(currentPlatform, settings);
     }
-
-    if (!settings.qualityDiagnostics) {
-      return;
-    }
-
-    // Quality diagnostics should observe playback state only. Do not force
-    // preload here: streaming sites manage buffering themselves, and changing
-    // preload can increase network usage or fight the player.
   }
 
   function runAutomation(video) {
@@ -555,7 +547,8 @@
       seen.add(action.setting);
       controls.push({
         setting: action.setting,
-        label: action.label || action.setting
+        label: action.label || action.setting,
+        controlLabel: action.controlLabel || action.label || action.setting
       });
     }
 
@@ -567,7 +560,7 @@
     activeVideo = media.findActiveVideo();
     refreshObserver(activeVideo);
     applySpeed();
-    applyQualityHints(activeVideo);
+    applyQualityTarget(activeVideo);
     runAutomation(activeVideo);
   }
 

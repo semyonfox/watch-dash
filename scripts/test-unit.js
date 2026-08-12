@@ -51,6 +51,9 @@ function testSettingsStorageEnvelope() {
   assert.strictEqual(stored.settings.targetSpeed, 1.5);
   assert.strictEqual(settingsTools.needsStorageMigration(stored), false);
   assert.strictEqual(settingsTools.normalize(stored).targetSpeed, 1.5);
+  assert.strictEqual(Object.isFrozen(context.WatchDashDefaults.defaultSettings), true);
+  assert.strictEqual(settingsTools.normalize({ enabled: 0, hotkeys: "yes" }).enabled, false);
+  assert.strictEqual(settingsTools.normalize({ enabled: 0, hotkeys: "yes" }).hotkeys, true);
 }
 
 function testAutomationTextFallbackGate() {
@@ -258,15 +261,15 @@ function testPlatformActionsDedupeSelectorsAtRegistration() {
       pathname: "/gp/video/detail/B012345"
     }
   });
-  const primeVideo = context.WatchDashPlatforms.find((platform) => platform.id === "prime-video");
-
-  for (const action of primeVideo.actions) {
-    assert.strictEqual(new Set(action.selectors).size, action.selectors.length);
-    assert.strictEqual(new Set(action.text).size, action.text.length);
+  for (const platform of context.WatchDashPlatforms) {
+    for (const action of platform.actions) {
+      assert.strictEqual(new Set(action.selectors).size, action.selectors.length);
+      assert.strictEqual(new Set(action.text).size, action.text.length);
+    }
   }
 }
 
-function testQualityDiagnosticsDoNotMutatePreload() {
+function testContentInitializationPreservesVideoPreload() {
   const video = {
     playbackRate: 1,
     paused: false,
@@ -538,6 +541,10 @@ function testYouTubeSelectorsFromPlayerProbe() {
   assert(nextVideo.selectors.includes("#movie_player button.ytp-endscreen-next"));
   assert.strictEqual(nextVideo.minProgressBeforeEnded, 0.985);
   assert.strictEqual(nextVideo.maxRemainingSecondsBeforeEnded, 8);
+  assert.strictEqual(nextVideo.controlLabel, "Next Video");
+
+  const netflix = context.WatchDashPlatforms.find((platform) => platform.id === "netflix");
+  assert.strictEqual(netflix.actions.find((action) => action.id === "skip-intro").controlLabel, "Intros");
 }
 
 function testPrimeVideoDetectorAvoidsGeneralAmazonPages() {
@@ -571,7 +578,7 @@ function testYouTubeAdOverlayDetectionAndJumpFallback() {
     }
   };
   const dispatchedEvents = [];
-  const context = loadScripts(["src/content/youtube-controller.js"], {
+  const context = loadScripts(["src/content/automation.js", "src/content/youtube-controller.js"], {
     document: {
       querySelector() {
         return null;
@@ -745,7 +752,7 @@ testAutomationTextFallbackCanBeScopedToPlayerRoot();
 testAutomationSkipsElementsWithPatchedVisibilityApis();
 testAutomationSelectorRootsAndQueryCacheAvoidRepeatedScans();
 testPlatformActionsDedupeSelectorsAtRegistration();
-testQualityDiagnosticsDoNotMutatePreload();
+testContentInitializationPreservesVideoPreload();
 testContentSchedulerCoalescesMutationsAndScopesObserver();
 testYouTubeBridgeOriginAndQuality();
 testYouTubeSelectorsFromPlayerProbe();

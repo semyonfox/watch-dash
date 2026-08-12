@@ -1,4 +1,9 @@
 (function registerWatchDashYouTubeController(root) {
+  if (root.WatchDashYouTubeController) {
+    return;
+  }
+
+  const isVisibleElement = root.WatchDashAutomation && root.WatchDashAutomation.isVisibleElement;
   let bridgeInjected = false;
   let bridgeReady = false;
   let lastQualityRequestAt = 0;
@@ -83,34 +88,11 @@
 
   function hasVisibleElement(selector) {
     try {
-      return Array.from(document.querySelectorAll(selector)).some(isVisibleElement);
+      return typeof isVisibleElement === "function" &&
+        Array.from(document.querySelectorAll(selector)).some(isVisibleElement);
     } catch (error) {
       return false;
     }
-  }
-
-  function isVisibleElement(element) {
-    if (!element) {
-      return false;
-    }
-
-    if (typeof element.checkVisibility === "function") {
-      try {
-        if (!element.checkVisibility()) {
-          return false;
-        }
-      } catch (error) {
-        // Fall through to the explicit checks below.
-      }
-    }
-
-    const rect = element.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) {
-      return false;
-    }
-
-    const style = getComputedStyle(element);
-    return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0.01;
   }
 
   function applyQualityTarget(platform, settings) {

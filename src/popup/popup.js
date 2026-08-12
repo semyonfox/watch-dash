@@ -2,37 +2,7 @@
   const defaults = root.WatchDashDefaults;
   const settingsTools = root.WatchDashSettings;
   const storageKey = defaults.storageKey;
-  const checkboxIds = [
-    "enabled",
-    "speedControls",
-    "skipIntros",
-    "skipRecaps",
-    "skipCredits",
-    "autoNextEpisode",
-    "continuePlaying",
-    "youtubeQualityControls",
-    "youtubeAdSpeedup",
-    "youtubeAutoSkipAds",
-    "qualityDiagnostics",
-    "hotkeys"
-  ];
   const qualityTargets = settingsTools.qualityTargets;
-  const defaultActionLabels = Object.freeze({
-    skipIntros: "Intros",
-    skipRecaps: "Recaps",
-    skipCredits: "Credits",
-    autoNextEpisode: "Next Episode",
-    continuePlaying: "Continue"
-  });
-  const contentScriptFiles = Object.freeze([
-    "src/shared/defaults.js",
-    "src/shared/settings.js",
-    "src/content/platforms.js",
-    "src/content/media.js",
-    "src/content/automation.js",
-    "src/content/youtube-controller.js",
-    "src/content/watch-dash.js"
-  ]);
   const storageWriteDelayMs = 500;
 
   let settings = settingsTools.normalize();
@@ -41,6 +11,7 @@
   let pendingStoredSettings = null;
   let settingsPersistTimer = null;
   let lastStatusAnnouncement = "";
+  let settingInputs = [];
 
   const elements = {};
 
@@ -54,8 +25,10 @@
   }
 
   function collectElements() {
-    for (const id of checkboxIds) {
-      elements[id] = document.getElementById(id);
+    settingInputs = Array.from(document.querySelectorAll("input[data-setting]"));
+
+    for (const input of settingInputs) {
+      elements[input.dataset.setting] = input;
     }
 
     for (const id of [
@@ -85,9 +58,9 @@
   }
 
   function wireEvents() {
-    for (const id of checkboxIds) {
-      elements[id].addEventListener("change", () => {
-        updateSettings({ [id]: elements[id].checked });
+    for (const input of settingInputs) {
+      input.addEventListener("change", () => {
+        updateSettings({ [input.dataset.setting]: input.checked });
       });
     }
 
@@ -232,8 +205,8 @@
   }
 
   function renderSettings() {
-    for (const id of checkboxIds) {
-      elements[id].checked = Boolean(settings[id]);
+    for (const input of settingInputs) {
+      input.checked = Boolean(settings[input.dataset.setting]);
     }
 
     elements.speed.min = settings.minSpeed;
@@ -414,10 +387,18 @@
 
   function registerSiteContentScript(api, pattern, callback) {
     const id = contentScriptIdForPattern(pattern);
+    const files = contentScriptFiles(api);
+
+    if (files.length === 0) {
+      console.warn("WatchDash could not find its content script bundle.");
+      callback();
+      return;
+    }
+
     const script = {
       id,
       matches: [pattern],
-      js: Array.from(contentScriptFiles),
+      js: files,
       runAt: "document_idle",
       persistAcrossSessions: true
     };
@@ -438,9 +419,17 @@
   }
 
   function injectContentScript(api, callback) {
+    const files = contentScriptFiles(api);
+
+    if (files.length === 0) {
+      console.warn("WatchDash could not find its content script bundle.");
+      callback();
+      return;
+    }
+
     api.scripting.executeScript({
       target: { tabId: activeTab.id },
-      files: Array.from(contentScriptFiles)
+      files
     }, () => {
       if (api.runtime.lastError) {
         console.warn("WatchDash could not inject this site:", api.runtime.lastError.message);
@@ -476,7 +465,10 @@
     const actionSettings = new Set(actionControls.length > 0 ?
       actionControls.map((control) => control.setting) :
       status && Array.isArray(status.actionSettings) ? status.actionSettings : []);
-    const actionLabels = new Map(actionControls.map((control) => [control.setting, control.label]));
+    const actionLabels = new Map(actionControls.map((control) => [
+      control.setting,
+      control.controlLabel || control.label
+    ]));
     const actionTiles = Array.from(document.querySelectorAll("[data-action-setting]"));
 
     for (const tile of actionTiles) {
@@ -485,7 +477,7 @@
       tile.hidden = !status || !actionSettings.has(setting);
 
       if (title) {
-        title.textContent = shortActionLabel(setting, actionLabels.get(setting));
+        title.textContent = actionLabels.get(setting) || title.textContent;
       }
     }
 
@@ -499,37 +491,6 @@
     elements.youtubeAdState.textContent = status.youtubeAdShowing ? "Ad" : "Ready";
     elements.youtubeAdSpeedState.textContent = `Ad speed: ${settings.youtubeAdSpeed.toFixed(2)}x`;
     elements.youtubeQualityState.textContent = youtubeQualityText(status.youtubeQuality);
-  }
-
-  function shortActionLabel(setting, label) {
-    const fallback = defaultActionLabels[setting] || label || setting;
-    const text = String(label || fallback);
-
-    if (setting === "autoNextEpisode" && /video/i.test(text)) {
-      return "Next Video";
-    }
-
-    if (setting === "autoNextEpisode") {
-      return "Next Episode";
-    }
-
-    if (setting === "continuePlaying") {
-      return "Continue";
-    }
-
-    if (setting === "skipIntros") {
-      return "Intros";
-    }
-
-    if (setting === "skipRecaps") {
-      return "Recaps";
-    }
-
-    if (setting === "skipCredits") {
-      return "Credits";
-    }
-
-    return text;
   }
 
   function youtubeQualityText(quality) {
@@ -553,5 +514,13 @@
     }
 
     return api;
+  }
+
+  // Optional-site registration must run the same ordered bundle as the static
+  // manifest entry: the content modules communicate through shared globals.
+  function contentScriptFiles(api) {
+    const manifest = typeof api.runtime.getManifest === "function" ? api.runtime.getManifest() : null;
+    const contentScript = manifest && Array.isArray(manifest.content_scripts) ? manifest.content_scripts[0] : null;
+    return contentScript && Array.isArray(contentScript.js) ? contentScript.js.slice() : [];
   }
 })(globalThis);

@@ -61,7 +61,10 @@ for (const contentScript of manifest.content_scripts || []) {
 }
 
 assertManifestHostCoverage();
+assertPrimaryContentScriptBundle();
 assertSettingsNormalization();
+assertPopupSettingsBindings();
+assertSourceSyntax();
 
 if (missing.length > 0 || errors.length > 0) {
   console.error("Missing extension files:");
@@ -139,6 +142,14 @@ function assertManifestHostCoverage() {
   assertHostSetContainsRegistryHosts(contentScriptHosts, registryHosts, "content_scripts.matches");
   assertNoHostsOutsideRegistry(hostPermissionHosts, registryHosts, "host_permissions");
   assertNoHostsOutsideRegistry(contentScriptHosts, registryHosts, "content_scripts.matches");
+}
+
+function assertPrimaryContentScriptBundle() {
+  const [contentScript] = manifest.content_scripts || [];
+
+  if (!contentScript || !Array.isArray(contentScript.js) || contentScript.js.length === 0) {
+    errors.push("manifest must declare a primary content script bundle for optional-site injection.");
+  }
 }
 
 function loadPlatformRegistryHosts() {
@@ -242,4 +253,64 @@ function assertSettingsNormalization() {
   if (inverted.minSpeed !== 0.25 || inverted.maxSpeed !== 16 || inverted.targetSpeed !== 8) {
     errors.push("settings normalization must reset inverted speed bounds before clamping targetSpeed.");
   }
+}
+
+function assertPopupSettingsBindings() {
+  const context = { globalThis: {} };
+  context.globalThis = context;
+  vm.runInNewContext(fs.readFileSync(path.join(root, "src/shared/defaults.js"), "utf8"), context, {
+    filename: "src/shared/defaults.js"
+  });
+
+  const popup = fs.readFileSync(path.join(root, manifest.action.default_popup), "utf8");
+  const bindings = new Set(Array.from(popup.matchAll(/<input\b[^>]*\bdata-setting="([^"]+)"[^>]*>/g), (match) => match[1]));
+  const booleanSettings = Object.entries(context.WatchDashDefaults.defaultSettings)
+    .filter(([, value]) => typeof value === "boolean")
+    .map(([key]) => key);
+
+  for (const key of booleanSettings) {
+    if (!bindings.has(key)) {
+      errors.push(`popup is missing a data-setting binding for boolean setting ${key}.`);
+    }
+  }
+
+  for (const key of bindings) {
+    if (!booleanSettings.includes(key)) {
+      errors.push(`popup data-setting ${key} does not map to a boolean default setting.`);
+    }
+  }
+
+  for (const id of ["speed", "qualityTarget"]) {
+    if (!new RegExp(`<input\\b[^>]*\\bid="${id}"[^>]*\\baria-label="[^"]+"[^>]*>`).test(popup)) {
+      errors.push(`popup range ${id} must have an accessible name.`);
+    }
+  }
+}
+
+function assertSourceSyntax() {
+  for (const relativePath of listJavaScriptFiles(path.join(root, "src"))) {
+    try {
+      new vm.Script(fs.readFileSync(path.join(root, relativePath), "utf8"), {
+        filename: relativePath
+      });
+    } catch (error) {
+      errors.push(`${relativePath} has invalid JavaScript syntax: ${error.message}`);
+    }
+  }
+}
+
+function listJavaScriptFiles(directory) {
+  const files = [];
+
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const fullPath = path.join(directory, entry.name);
+
+    if (entry.isDirectory()) {
+      files.push(...listJavaScriptFiles(fullPath));
+    } else if (entry.isFile() && entry.name.endsWith(".js")) {
+      files.push(path.relative(root, fullPath));
+    }
+  }
+
+  return files;
 }

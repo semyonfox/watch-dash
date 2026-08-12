@@ -1,5 +1,5 @@
 (function registerWatchDashDefaults(root) {
-  const defaultSettings = {
+  const defaultSettings = Object.freeze({
     enabled: true,
     speedControls: true,
     targetSpeed: 1,
@@ -19,7 +19,7 @@
     youtubeAutoSkipAds: true,
     clickCooldownMs: 1600,
     hotkeys: true
-  };
+  });
 
   root.WatchDashDefaults = Object.freeze({
     storageKey: "watchDashSettings",

@@ -88,6 +88,7 @@ See [docs/research.md](docs/research.md) for market notes, licensing notes, and 
 - `src/content/watch-dash.js` owns the generic runtime loop: platform detection, speed policy, automation orchestration, status, and hotkeys.
 - `src/content/youtube-controller.js` owns YouTube-specific content-script behavior such as ad detection and quality bridge messaging.
 - `src/content/youtube-bridge.js` runs in the page context so it can call YouTube's player quality APIs.
+- `manifest.json` owns the ordered content-script bundle; optional-site activation reuses that same bundle.
 
 ## Idea Credits
 
