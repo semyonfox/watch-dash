@@ -1,6 +1,16 @@
 (function registerWatchDashMedia(root) {
+  const playingScoreBonus = 1000000000;
+  const unmutedScoreBonus = 400000000;
+  const endedScoreBonus = 1000000;
+  const detachedScorePenalty = 2000000000;
+  const visibleScoreBonus = 250000;
+
   function listVideos() {
-    return Array.from(document.querySelectorAll("video"));
+    try {
+      return Array.from(document.querySelectorAll("video"));
+    } catch (error) {
+      return [];
+    }
   }
 
   function findActiveVideo() {
@@ -25,36 +35,115 @@
   }
 
   function scoreVideo(video) {
-    const rect = video.getBoundingClientRect();
-    const area = Math.max(0, rect.width) * Math.max(0, rect.height);
+    let area = 0;
+    try {
+      const rect = video.getBoundingClientRect();
+      area = Math.max(0, rect.width) * Math.max(0, rect.height);
+    } catch (error) {
+      area = 0;
+    }
+
     let score = area;
 
     if (!video.paused) {
-      score += 1000000000;
+      score += playingScoreBonus;
+    }
+
+    // autoplaying previews are almost always muted, main content usually is not
+    if (!video.muted) {
+      score += unmutedScoreBonus;
     }
 
     if (!video.ended) {
-      score += 1000000;
+      score += endedScoreBonus;
+    }
+
+    // detached elements are leftovers from dom churn, never the active player
+    if (video.isConnected === false) {
+      score -= detachedScorePenalty;
+    }
+
+    if (isInViewport(video)) {
+      score += visibleScoreBonus;
     }
 
     return score;
   }
 
+  function isInViewport(video) {
+    const viewWidth = Number(root.innerWidth);
+    const viewHeight = Number(root.innerHeight);
+
+    if (
+      !Number.isFinite(viewWidth) ||
+      !Number.isFinite(viewHeight) ||
+      viewWidth <= 0 ||
+      viewHeight <= 0
+    ) {
+      return false;
+    }
+
+    try {
+      const rect = video.getBoundingClientRect();
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.right > 0 &&
+        rect.bottom > 0 &&
+        rect.left < viewWidth &&
+        rect.top < viewHeight
+      );
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function isUsableVideo(video) {
+    return Boolean(video) && video.isConnected !== false;
+  }
+
   function getPlaybackQuality(video) {
-    if (!video || typeof video.getVideoPlaybackQuality !== "function") {
+    if (!video) {
       return null;
     }
 
-    const quality = video.getVideoPlaybackQuality();
+    if (typeof video.getVideoPlaybackQuality === "function") {
+      try {
+        const quality = video.getVideoPlaybackQuality();
+        return {
+          droppedVideoFrames: finiteCountOrNull(
+            quality && quality.droppedVideoFrames,
+          ),
+          totalVideoFrames: finiteCountOrNull(
+            quality && quality.totalVideoFrames,
+          ),
+        };
+      } catch (error) {
+        // some pages patch dom apis, fall through to element counters
+      }
+    }
+
+    // some engines only expose frame counters on the element itself
+    const droppedFrames = finiteCountOrNull(video.webkitDroppedFrameCount);
+    if (droppedFrames === null) {
+      return null;
+    }
+
     return {
-      droppedVideoFrames: quality.droppedVideoFrames,
-      totalVideoFrames: quality.totalVideoFrames
+      droppedVideoFrames: droppedFrames,
+      totalVideoFrames: finiteCountOrNull(video.webkitDecodedFrameCount),
     };
+  }
+
+  function finiteCountOrNull(value) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) && numeric >= 0 ? numeric : null;
   }
 
   root.WatchDashMedia = Object.freeze({
     listVideos,
     findActiveVideo,
-    getPlaybackQuality
+    isUsableVideo,
+    getPlaybackQuality,
   });
 })(globalThis);

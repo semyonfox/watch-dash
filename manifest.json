@@ -20,14 +20,14 @@
       "128": "src/assets/icon-128.png"
     }
   },
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
+  },
   "background": {
     "service_worker": "src/background/service-worker.js"
   },
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "storage"
-  ],
+  "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": [
     "*://*.netflix.com/*",
     "*://*.primevideo.com/*",
@@ -56,18 +56,18 @@
     "*://youtu.be/*",
     "*://*.crunchyroll.com/*",
     "*://*.tubi.tv/*",
+    "*://*.tubitv.com/*",
     "*://therokuchannel.roku.com/*",
     "*://*.therokuchannel.roku.com/*",
     "*://*.pluto.tv/*",
     "http://localhost/*",
     "https://localhost/*",
     "http://127.0.0.1/*",
-    "https://127.0.0.1/*"
+    "https://127.0.0.1/*",
+    "http://[::1]/",
+    "https://[::1]/"
   ],
-  "optional_host_permissions": [
-    "http://*/*",
-    "https://*/*"
-  ],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
   "content_scripts": [
     {
       "matches": [
@@ -98,13 +98,16 @@
         "*://youtu.be/*",
         "*://*.crunchyroll.com/*",
         "*://*.tubi.tv/*",
+        "*://*.tubitv.com/*",
         "*://therokuchannel.roku.com/*",
         "*://*.therokuchannel.roku.com/*",
         "*://*.pluto.tv/*",
         "http://localhost/*",
         "https://localhost/*",
         "http://127.0.0.1/*",
-        "https://127.0.0.1/*"
+        "https://127.0.0.1/*",
+        "http://[::1]/",
+        "https://[::1]/"
       ],
       "js": [
         "src/shared/defaults.js",
@@ -116,17 +119,12 @@
         "src/content/watch-dash.js"
       ],
       "run_at": "document_idle"
-    }
-  ],
-  "web_accessible_resources": [
+    },
     {
-      "resources": [
-        "src/content/youtube-bridge.js"
-      ],
-      "matches": [
-        "*://*.youtube.com/*",
-        "*://youtu.be/*"
-      ]
+      "matches": ["*://*.youtube.com/*", "*://youtu.be/*"],
+      "js": ["src/content/youtube-bridge.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
     }
   ],
   "commands": {

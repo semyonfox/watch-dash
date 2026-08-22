@@ -19,14 +19,22 @@
   const storageKey = defaults.storageKey;
   const storageWriteDelayMs = 500;
   const textFallbackCooldownMs = 2500;
+  const automationMissCooldownMs = 5000;
   const minimumAutomationVideoWidth = 240;
   const minimumAutomationVideoHeight = 135;
   const minimumAutomationDurationSeconds = 120;
+  const rateEpsilon = 0.001;
+  const tickDelayMs = 250;
+  const hiddenTickDelayMs = 1000;
+  const hiddenAutomationIntervalMs = 5000;
+  const rateFixDelayMs = 120;
+
   let settings = settingsTools.normalize();
   let currentPlatform = detectPlatform();
   let lastAction = null;
   let lastActionAt = 0;
   let scheduled = false;
+  let rateFixTimer = null;
   let lastDisplayedSpeed = null;
   let speedToastTimer = null;
   let adSpeedWasActive = false;
@@ -34,37 +42,65 @@
   let settingsPersistTimer = null;
   let activeVideo = null;
   let lastTextFallbackScanAt = 0;
+  let lastAutomationRunAt = 0;
   let observer = null;
   let observedRoot = null;
 
   const actionCooldowns = new Map();
+  const expectedRates = new WeakMap();
   let adSpeedRestoreRates = new WeakMap();
 
   function detectPlatform() {
     const host = location.hostname.replace(/^www\./, "").toLowerCase();
 
-    return platforms.find((platform) => {
-      const hostPatterns = platform.hostPatterns || [];
-      const hostMatches = hostPatterns.some((pattern) => host === pattern || host.endsWith(`.${pattern}`));
-      const hasDetector = typeof platform.detect === "function";
-      const detectorMatches = hasDetector && runPlatformDetector(platform);
+    return (
+      platforms.find((platform) => {
+        const hostPatterns = platform.hostPatterns || [];
+        const hostMatches = hostPatterns.some(
+          (pattern) => host === pattern || host.endsWith(`.${pattern}`),
+        );
+        const hasDetector = typeof platform.detect === "function";
 
-      if (hasDetector && hostPatterns.length > 0) {
-        return hostMatches && detectorMatches;
-      }
+        // detector-only platforms are local apps, so their dom probes never need
+        // to run on regular streaming sites where they cannot match anyway
+        const detectorAllowed =
+          hasDetector && (hostPatterns.length > 0 || isLocalAddress(host));
 
-      return hostMatches || detectorMatches;
-    }) || null;
+        if (!hostMatches && !detectorAllowed) {
+          return false;
+        }
+
+        const detectorMatches =
+          detectorAllowed && runPlatformDetector(platform);
+
+        if (hasDetector && hostPatterns.length > 0) {
+          return hostMatches && detectorMatches;
+        }
+
+        return hostMatches || detectorMatches;
+      }) || null
+    );
+  }
+
+  function isLocalAddress(host) {
+    return (
+      host === "localhost" ||
+      host.endsWith(".localhost") ||
+      host === "[::1]" ||
+      /^127(?:\.\d{1,3}){3}$/.test(host)
+    );
   }
 
   function runPlatformDetector(platform) {
     try {
-      return Boolean(platform.detect({
-        document,
-        host: location.hostname,
-        path: location.pathname,
-        url: location.href
-      }));
+      return Boolean(
+        platform.detect({
+          document,
+          host: location.hostname,
+          path: location.pathname,
+          url: location.href,
+        }),
+      );
     } catch (error) {
       return false;
     }
@@ -73,7 +109,10 @@
   function loadSettings() {
     chrome.storage.sync.get([storageKey], (result) => {
       if (chrome.runtime.lastError) {
-        console.warn("WatchDash could not load settings:", chrome.runtime.lastError.message);
+        console.warn(
+          "WatchDash could not load settings:",
+          chrome.runtime.lastError.message,
+        );
         tick();
         return;
       }
@@ -123,108 +162,242 @@
   }
 
   function writeSettingsToStorage(nextSettings) {
-    chrome.storage.sync.set({
-      [storageKey]: settingsTools.toStorageValue(nextSettings)
-    }, () => {
-      if (chrome.runtime.lastError) {
-        console.warn("WatchDash could not save settings:", chrome.runtime.lastError.message);
-      }
-    });
+    chrome.storage.sync.set(
+      {
+        [storageKey]: settingsTools.toStorageValue(nextSettings),
+      },
+      () => {
+        if (chrome.runtime.lastError) {
+          console.warn(
+            "WatchDash could not save settings:",
+            chrome.runtime.lastError.message,
+          );
+        }
+      },
+    );
+  }
+
+  function targetPlaybackSpeed() {
+    if (!settings.speedControls) {
+      return null;
+    }
+
+    return settingsTools.clampNumber(
+      settings.targetSpeed,
+      settings.minSpeed,
+      settings.maxSpeed,
+      1,
+    );
+  }
+
+  function clampedAdSpeed() {
+    return settingsTools.clampNumber(
+      settings.youtubeAdSpeed,
+      1,
+      settings.maxSpeed,
+      16,
+    );
   }
 
   function applySpeed() {
+    // unwind ad speed before any guard so disabling mid-ad never sticks at 16x
+    if (adSpeedWasActive && !shouldUseYouTubeAdSpeed()) {
+      restoreAdPlaybackRates(media.listVideos(), settings.enabled);
+      adSpeedWasActive = false;
+      adSpeedRestoreRates = new WeakMap();
+    }
+
     if (!settings.enabled || !currentPlatform) {
       return;
     }
 
     const videos = media.listVideos();
-    const adSpeedActive = shouldUseYouTubeAdSpeed();
 
-    if (adSpeedActive) {
+    if (shouldUseYouTubeAdSpeed()) {
       captureAdSpeedRestoreRates(videos);
+      applyPlaybackRate(videos, clampedAdSpeed(), true);
       adSpeedWasActive = true;
-      applyPlaybackRate(videos, settings.youtubeAdSpeed);
       return;
     }
 
-    if (adSpeedWasActive) {
-      restoreAdPlaybackRates(videos);
-      adSpeedWasActive = false;
-      adSpeedRestoreRates = new WeakMap();
-    }
-
-    if (!settings.speedControls) {
-      return;
-    }
-
-    applyPlaybackRate(videos, settingsTools.clampNumber(settings.targetSpeed, settings.minSpeed, settings.maxSpeed, 1));
+    // background enforcement stays quiet so drift fixes do not spam toasts
+    applyPlaybackRate(videos, targetPlaybackSpeed(), false);
   }
 
   function shouldUseYouTubeAdSpeed() {
-    return Boolean(settings.youtubeAdSpeedup &&
+    return Boolean(
+      settings.youtubeAdSpeedup &&
       youtubeController &&
       currentPlatform &&
       currentPlatform.id === "youtube" &&
-      youtubeController.isAdShowing(currentPlatform));
+      youtubeController.isAdShowing(currentPlatform),
+    );
   }
 
   function captureAdSpeedRestoreRates(videos) {
     for (const video of videos) {
       if (!adSpeedRestoreRates.has(video)) {
         adSpeedRestoreRates.set(video, {
-          playbackRate: video.playbackRate,
-          defaultPlaybackRate: video.defaultPlaybackRate
+          playbackRate: Number(video.playbackRate),
+          defaultPlaybackRate: Number(video.defaultPlaybackRate),
         });
       }
     }
   }
 
-  function restoreAdPlaybackRates(videos) {
-    const targetSpeed = settings.speedControls ?
-      settingsTools.clampNumber(settings.targetSpeed, settings.minSpeed, settings.maxSpeed, 1) :
-      null;
+  function restoreAdPlaybackRates(videos, enforceTargetSpeed) {
+    if (videos.length === 0) {
+      return;
+    }
+
+    const targetSpeed = enforceTargetSpeed ? targetPlaybackSpeed() : null;
+    let displayedSpeed = null;
     let changed = false;
-    let displayedSpeed = targetSpeed;
 
     for (const video of videos) {
       const savedRates = adSpeedRestoreRates.get(video);
-      const playbackRate = targetSpeed || savedRates && savedRates.playbackRate;
-      const defaultPlaybackRate = targetSpeed || savedRates && savedRates.defaultPlaybackRate;
 
-      if (Number.isFinite(playbackRate) && Math.abs(video.playbackRate - playbackRate) > 0.001) {
-        video.playbackRate = playbackRate;
-        changed = true;
+      // elements created mid-ad have no pre-ad rate saved, so land them on 1x
+      const playbackRate =
+        targetSpeed !== null
+          ? targetSpeed
+          : savedRates && Number.isFinite(savedRates.playbackRate)
+            ? savedRates.playbackRate
+            : 1;
+      const defaultPlaybackRate =
+        targetSpeed !== null
+          ? targetSpeed
+          : savedRates && Number.isFinite(savedRates.defaultPlaybackRate)
+            ? savedRates.defaultPlaybackRate
+            : 1;
+
+      if (displayedSpeed === null) {
         displayedSpeed = playbackRate;
       }
 
-      if (Number.isFinite(defaultPlaybackRate) && Math.abs(video.defaultPlaybackRate - defaultPlaybackRate) > 0.001) {
+      if (Math.abs(Number(video.playbackRate) - playbackRate) > rateEpsilon) {
+        video.playbackRate = playbackRate;
+        changed = true;
+      }
+
+      if (
+        Number.isFinite(Number(video.defaultPlaybackRate)) &&
+        Math.abs(Number(video.defaultPlaybackRate) - defaultPlaybackRate) >
+          rateEpsilon
+      ) {
         video.defaultPlaybackRate = defaultPlaybackRate;
       }
+
+      rememberExpectedRates(video);
     }
 
-    if (changed && videos.length > 0 && Number.isFinite(displayedSpeed) && lastDisplayedSpeed !== displayedSpeed) {
+    if (
+      changed &&
+      displayedSpeed !== null &&
+      lastDisplayedSpeed !== displayedSpeed
+    ) {
       showSpeedToast(displayedSpeed);
       lastDisplayedSpeed = displayedSpeed;
     }
   }
 
-  function applyPlaybackRate(videos, speed) {
+  function applyPlaybackRate(videos, speed, announce) {
+    if (!Number.isFinite(speed)) {
+      return;
+    }
+
     let changed = false;
 
     for (const video of videos) {
-      if (Math.abs(video.playbackRate - speed) > 0.001) {
+      if (Math.abs(video.playbackRate - speed) > rateEpsilon) {
         video.playbackRate = speed;
         changed = true;
       }
 
-      if (Math.abs(video.defaultPlaybackRate - speed) > 0.001) {
+      if (
+        Number.isFinite(video.defaultPlaybackRate) &&
+        Math.abs(video.defaultPlaybackRate - speed) > rateEpsilon
+      ) {
         video.defaultPlaybackRate = speed;
+        changed = true;
       }
+
+      rememberExpectedRates(video);
     }
 
-    if (changed && videos.length > 0 && lastDisplayedSpeed !== speed) {
+    if (
+      changed &&
+      announce &&
+      videos.length > 0 &&
+      lastDisplayedSpeed !== speed
+    ) {
       showSpeedToast(speed);
       lastDisplayedSpeed = speed;
+    }
+  }
+
+  function rememberExpectedRates(video) {
+    expectedRates.set(video, {
+      playbackRate: Number(video.playbackRate),
+      defaultPlaybackRate: Number(video.defaultPlaybackRate),
+    });
+  }
+
+  function handleRateChange(event) {
+    const video = event && event.target;
+
+    if (!video || video.tagName !== "VIDEO") {
+      return;
+    }
+
+    if (!settings.enabled || !currentPlatform) {
+      return;
+    }
+
+    if (
+      !adSpeedWasActive &&
+      !shouldUseYouTubeAdSpeed() &&
+      !settings.speedControls
+    ) {
+      return;
+    }
+
+    const expected = expectedRates.get(video);
+
+    if (!expected) {
+      return;
+    }
+
+    const playbackDrifted =
+      Number.isFinite(expected.playbackRate) &&
+      Math.abs(Number(video.playbackRate) - expected.playbackRate) >
+        rateEpsilon;
+    const defaultDrifted =
+      Number.isFinite(expected.defaultPlaybackRate) &&
+      Number.isFinite(Number(video.defaultPlaybackRate)) &&
+      Math.abs(
+        Number(video.defaultPlaybackRate) - expected.defaultPlaybackRate,
+      ) > rateEpsilon;
+
+    if (playbackDrifted || defaultDrifted) {
+      scheduleRateFix();
+    }
+  }
+
+  function scheduleRateFix() {
+    if (rateFixTimer) {
+      return;
+    }
+
+    rateFixTimer = window.setTimeout(() => {
+      rateFixTimer = null;
+      tick();
+    }, rateFixDelayMs);
+  }
+
+  function handleVideoEvent(event) {
+    if (event && event.target && event.target.tagName === "VIDEO") {
+      scheduleRecoveryTick();
     }
   }
 
@@ -251,15 +424,22 @@
       return;
     }
 
+    // no selector scans off the watch surface or without a real video
+    if (!video || !isPlaybackSurface(video)) {
+      return;
+    }
+
     const now = Date.now();
-    const allowTextFallback = now - lastTextFallbackScanAt >= textFallbackCooldownMs;
+    const allowTextFallback =
+      now - lastTextFallbackScanAt >= textFallbackCooldownMs;
 
     if (allowTextFallback) {
       lastTextFallbackScanAt = now;
     }
 
     const selectorRoots = getSelectorRoots(video);
-    const selectorQueryCache = typeof WeakMap === "function" ? new WeakMap() : null;
+    const selectorQueryCache =
+      typeof WeakMap === "function" ? new WeakMap() : null;
 
     for (const action of currentPlatform.actions) {
       if (!settings[action.setting]) {
@@ -277,9 +457,15 @@
         allowTextFallback,
         selectorRoots,
         queryCache: selectorQueryCache,
-        textFallbackRoot: getTextFallbackRoot(video)
+        textFallbackRoot: getTextFallbackRoot(video),
       });
       if (!target) {
+        // misses back off so idle watch pages do not rescan every tick
+        actionCooldowns.set(
+          action.id,
+          now + automationMissCooldownMs - cooldownMs,
+        );
+
         const fallbackAction = runAutomationFallback(action, video);
 
         if (fallbackAction) {
@@ -305,12 +491,18 @@
   }
 
   function runAutomationFallback(action, video) {
-    if (action.type === "adSkip" &&
+    if (
+      action.type === "adSkip" &&
       currentPlatform &&
       currentPlatform.id === "youtube" &&
       youtubeController &&
-      typeof youtubeController.jumpForwardThroughAd === "function") {
-      return youtubeController.jumpForwardThroughAd(currentPlatform, settings, video);
+      typeof youtubeController.jumpForwardThroughAd === "function"
+    ) {
+      return youtubeController.jumpForwardThroughAd(
+        currentPlatform,
+        settings,
+        video,
+      );
     }
 
     return null;
@@ -318,11 +510,14 @@
 
   function shouldRunAction(action, target, video) {
     if (action.type === "adSkip") {
-      return currentPlatform && currentPlatform.id === "youtube" &&
+      return (
+        currentPlatform &&
+        currentPlatform.id === "youtube" &&
         isPlaybackSurface(video) &&
         Boolean(video) &&
         youtubeController &&
-        youtubeController.isAdShowing(currentPlatform);
+        youtubeController.isAdShowing(currentPlatform)
+      );
     }
 
     if (action.type !== "nextEpisode") {
@@ -343,16 +538,25 @@
 
     const progress = video.currentTime / video.duration;
     const remainingSeconds = video.duration - video.currentTime;
-    const minProgressBeforeEnded = Number.isFinite(action.minProgressBeforeEnded) ?
-      action.minProgressBeforeEnded :
-      0.999;
-    const maxRemainingSecondsBeforeEnded = Number.isFinite(action.maxRemainingSecondsBeforeEnded) ?
-      action.maxRemainingSecondsBeforeEnded :
-      1;
+    const minProgressBeforeEnded = Number.isFinite(
+      action.minProgressBeforeEnded,
+    )
+      ? action.minProgressBeforeEnded
+      : 0.999;
+    const maxRemainingSecondsBeforeEnded = Number.isFinite(
+      action.maxRemainingSecondsBeforeEnded,
+    )
+      ? action.maxRemainingSecondsBeforeEnded
+      : 1;
 
-    return Boolean(target) &&
+    // a deliberate pause near the end must not trigger the click
+    return (
+      Boolean(target) &&
+      !video.paused &&
+      !video.seeking &&
       progress >= minProgressBeforeEnded &&
-      remainingSeconds <= maxRemainingSecondsBeforeEnded;
+      remainingSeconds <= maxRemainingSecondsBeforeEnded
+    );
   }
 
   function isPlaybackSurface(video) {
@@ -360,14 +564,22 @@
       return false;
     }
 
-    const patterns = currentPlatform.watchUrlPatterns ||
-      (currentPlatform.watchUrlPattern ? [currentPlatform.watchUrlPattern] : []);
+    const patterns =
+      currentPlatform.watchUrlPatterns ||
+      (currentPlatform.watchUrlPattern
+        ? [currentPlatform.watchUrlPattern]
+        : []);
 
-    if (patterns.some((pattern) => pathMatchesPattern(location.pathname, pattern))) {
+    if (
+      patterns.some((pattern) => pathMatchesPattern(location.pathname, pattern))
+    ) {
       return true;
     }
 
-    return Boolean(currentPlatform.allowVideoSurfaceFallback && isMeaningfulAutomationVideo(video));
+    return Boolean(
+      currentPlatform.allowVideoSurfaceFallback &&
+      isMeaningfulAutomationVideo(video),
+    );
   }
 
   function getSelectorRoots(video) {
@@ -387,16 +599,22 @@
       return null;
     }
 
-    return video.closest([
-      "#movie_player",
-      ".html5-video-player",
-      "[data-uia='video-canvas']",
-      "[data-uia='player']",
-      "[data-testid*='player']",
-      "[class*='player']",
-      "main",
-      "section"
-    ].join(", ")) || video.parentElement || null;
+    return (
+      video.closest(
+        [
+          "#movie_player",
+          ".html5-video-player",
+          "[data-uia='video-canvas']",
+          "[data-uia='player']",
+          "[data-testid*='player']",
+          "[class*='player']",
+          "main",
+          "section",
+        ].join(", "),
+      ) ||
+      video.parentElement ||
+      null
+    );
   }
 
   function pathMatchesPattern(pathname, pattern) {
@@ -430,18 +648,28 @@
       return false;
     }
 
-    if (rect.width < minimumAutomationVideoWidth || rect.height < minimumAutomationVideoHeight) {
+    if (
+      rect.width < minimumAutomationVideoWidth ||
+      rect.height < minimumAutomationVideoHeight
+    ) {
       return false;
     }
 
     const duration = Number(video.duration);
-    return !Number.isFinite(duration) ||
+    return (
+      !Number.isFinite(duration) ||
       duration >= minimumAutomationDurationSeconds ||
-      Number(video.currentTime) >= 30;
+      Number(video.currentTime) >= 30
+    );
   }
 
   function changeSpeed(delta) {
-    const targetSpeed = settingsTools.clampNumber(settings.targetSpeed + delta, settings.minSpeed, settings.maxSpeed, 1);
+    const targetSpeed = settingsTools.clampNumber(
+      settings.targetSpeed + delta,
+      settings.minSpeed,
+      settings.maxSpeed,
+      1,
+    );
     showSpeedToast(targetSpeed);
     persistSettings(Object.assign({}, settings, { targetSpeed }));
   }
@@ -462,17 +690,28 @@
     }
 
     if (command === "reset-speed") {
+      showSpeedToast(1);
       persistSettings(Object.assign({}, settings, { targetSpeed: 1 }));
       return;
     }
 
     if (command === "toggle-autopilot") {
-      persistSettings(Object.assign({}, settings, { enabled: !settings.enabled }));
+      persistSettings(
+        Object.assign({}, settings, { enabled: !settings.enabled }),
+      );
     }
   }
 
   function handleHotkey(event) {
-    if (!settings.enabled || !settings.hotkeys || !currentPlatform || event.defaultPrevented || event.ctrlKey || event.metaKey) {
+    if (
+      !settings.enabled ||
+      !settings.hotkeys ||
+      !currentPlatform ||
+      event.defaultPrevented ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.repeat
+    ) {
       return;
     }
 
@@ -480,9 +719,12 @@
       return;
     }
 
-    const increaseRequested = (!event.altKey && (event.key === "+" || event.key === "=" || event.code === "Equal")) ||
+    const increaseRequested =
+      (!event.altKey &&
+        (event.key === "+" || event.key === "=" || event.code === "Equal")) ||
       (event.altKey && event.key === "]");
-    const decreaseRequested = (!event.altKey && (event.key === "-" || event.code === "Minus")) ||
+    const decreaseRequested =
+      (!event.altKey && (event.key === "-" || event.code === "Minus")) ||
       (event.altKey && event.key === "[");
 
     if (increaseRequested) {
@@ -499,39 +741,57 @@
 
     if (event.key === "\\") {
       event.preventDefault();
+      showSpeedToast(1);
       persistSettings(Object.assign({}, settings, { targetSpeed: 1 }));
     }
   }
 
+  function hasLiveActiveVideo(video) {
+    return Boolean(video) && video.isConnected !== false;
+  }
+
   function getStatus() {
-    const video = activeVideo || media.findActiveVideo();
+    const video = hasLiveActiveVideo(activeVideo)
+      ? activeVideo
+      : media.findActiveVideo();
     const quality = media.getPlaybackQuality(video);
 
     return {
       platform: currentPlatform ? currentPlatform.id : "unknown",
       platformLabel: currentPlatform ? currentPlatform.label : "Unknown",
-      playbackSettingsUrl: currentPlatform ? currentPlatform.playbackSettingsUrl || null : null,
+      playbackSettingsUrl: currentPlatform
+        ? currentPlatform.playbackSettingsUrl || null
+        : null,
       platformFeatures: currentPlatform ? currentPlatform.features || {} : {},
-      actionSettings: currentPlatform ? (currentPlatform.actions || []).map((action) => action.setting) : [],
-      actionControls: currentPlatform ? actionControls(currentPlatform.actions || []) : [],
+      actionSettings: currentPlatform
+        ? (currentPlatform.actions || []).map((action) => action.setting)
+        : [],
+      actionControls: currentPlatform
+        ? actionControls(currentPlatform.actions || [])
+        : [],
       enabled: settings.enabled,
       targetSpeed: settings.targetSpeed,
       activeSpeed: video ? Math.round(video.playbackRate * 100) / 100 : null,
-      youtubeAdShowing: currentPlatform && currentPlatform.id === "youtube" && youtubeController ?
-        youtubeController.isAdShowing(currentPlatform) :
-        false,
-      youtubeQuality: currentPlatform && currentPlatform.id === "youtube" && youtubeController ?
-        youtubeController.getQualityStatus(currentPlatform) :
-        null,
+      youtubeAdShowing:
+        currentPlatform && currentPlatform.id === "youtube" && youtubeController
+          ? youtubeController.isAdShowing(currentPlatform)
+          : false,
+      youtubeQuality:
+        currentPlatform && currentPlatform.id === "youtube" && youtubeController
+          ? youtubeController.getQualityStatus(currentPlatform)
+          : null,
       videoWidth: video && video.videoWidth ? video.videoWidth : null,
       videoHeight: video && video.videoHeight ? video.videoHeight : null,
       qualityTargetHeight: settings.qualityTargetHeight,
-      qualityTargetMet: video && video.videoHeight ? video.videoHeight >= settings.qualityTargetHeight : null,
+      qualityTargetMet:
+        video && video.videoHeight
+          ? video.videoHeight >= settings.qualityTargetHeight
+          : null,
       droppedVideoFrames: quality ? quality.droppedVideoFrames : null,
       totalVideoFrames: quality ? quality.totalVideoFrames : null,
       lastAction,
       lastActionAt,
-      url: location.href
+      url: location.href,
     };
   }
 
@@ -548,20 +808,37 @@
       controls.push({
         setting: action.setting,
         label: action.label || action.setting,
-        controlLabel: action.controlLabel || action.label || action.setting
+        controlLabel: action.controlLabel || action.label || action.setting,
       });
     }
 
     return controls;
   }
 
+  function isTabHidden() {
+    return document.visibilityState === "hidden";
+  }
+
   function tick() {
+    const hidden = isTabHidden();
+
     currentPlatform = detectPlatform();
     activeVideo = media.findActiveVideo();
     refreshObserver(activeVideo);
     applySpeed();
-    applyQualityTarget(activeVideo);
-    runAutomation(activeVideo);
+
+    if (!hidden) {
+      applyQualityTarget(activeVideo);
+      runAutomation(activeVideo);
+      lastAutomationRunAt = Date.now();
+      return;
+    }
+
+    // hidden tabs still enforce rate policy but scan automation rarely
+    if (Date.now() - lastAutomationRunAt >= hiddenAutomationIntervalMs) {
+      runAutomation(activeVideo);
+      lastAutomationRunAt = Date.now();
+    }
   }
 
   function getObserverRoot(video) {
@@ -595,8 +872,8 @@
         "data-uia",
         "role",
         "style",
-        "title"
-      ]
+        "title",
+      ],
     });
   }
 
@@ -606,10 +883,13 @@
     }
 
     scheduled = true;
-    window.setTimeout(() => {
-      scheduled = false;
-      tick();
-    }, 250);
+    window.setTimeout(
+      () => {
+        scheduled = false;
+        tick();
+      },
+      isTabHidden() ? hiddenTickDelayMs : tickDelayMs,
+    );
   }
 
   function scheduleRecoveryTick() {
@@ -634,8 +914,27 @@
     }
 
     if (message.type === "watch-dash:set-settings") {
-      if (message.settings && Number(message.settings.targetSpeed) !== Number(settings.targetSpeed)) {
-        showSpeedToast(settingsTools.clampNumber(message.settings.targetSpeed, settings.minSpeed, settings.maxSpeed, 1));
+      if (!settingsTools.isSettingsPayload(message.settings)) {
+        sendResponse({
+          ok: false,
+          error: "invalid-settings",
+          settings,
+          status: getStatus(),
+        });
+        return true;
+      }
+
+      if (
+        Number(message.settings.targetSpeed) !== Number(settings.targetSpeed)
+      ) {
+        showSpeedToast(
+          settingsTools.clampNumber(
+            message.settings.targetSpeed,
+            settings.minSpeed,
+            settings.maxSpeed,
+            1,
+          ),
+        );
       }
 
       applySettings(message.settings);
@@ -662,7 +961,14 @@
   });
 
   document.addEventListener("keydown", handleHotkey, true);
-  window.addEventListener("pagehide", flushSettingsPersist);
+  document.addEventListener("ratechange", handleRateChange, true);
+  document.addEventListener("play", handleVideoEvent, true);
+  document.addEventListener("loadedmetadata", handleVideoEvent, true);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  window.addEventListener("pagehide", handlePageHide);
+  window.addEventListener("pageshow", handlePageShow);
+  window.addEventListener("popstate", scheduleRecoveryTick);
+  window.addEventListener("hashchange", scheduleRecoveryTick);
 
   observer = new MutationObserver(scheduleTick);
   refreshObserver(null);
@@ -670,11 +976,48 @@
   window.setInterval(scheduleRecoveryTick, 1000);
   loadSettings();
 
+  function handleVisibilityChange() {
+    // timers throttle while hidden, so catch up as soon as the tab returns
+    if (!isTabHidden()) {
+      scheduleRecoveryTick();
+    }
+  }
+
+  function handlePageShow() {
+    // covers bfcache restores where pending timers may have been dropped
+    scheduleRecoveryTick();
+  }
+
+  function handlePageHide() {
+    flushSettingsPersist();
+
+    if (settingsPersistTimer) {
+      window.clearTimeout(settingsPersistTimer);
+      settingsPersistTimer = null;
+    }
+
+    if (speedToastTimer) {
+      window.clearTimeout(speedToastTimer);
+      speedToastTimer = null;
+    }
+
+    if (rateFixTimer) {
+      window.clearTimeout(rateFixTimer);
+      rateFixTimer = null;
+    }
+  }
+
   function showSpeedToast(speed) {
     const toast = getSpeedToast();
-    const value = settingsTools.clampNumber(speed, settings.minSpeed, settings.maxSpeed, 1);
+    const value = settingsTools.clampNumber(
+      speed,
+      settings.minSpeed,
+      settings.maxSpeed,
+      1,
+    );
 
-    toast.querySelector("[data-watch-dash-speed-value]").textContent = `${value.toFixed(2)}x`;
+    toast.querySelector("[data-watch-dash-speed-value]").textContent =
+      `${value.toFixed(2)}x`;
     toast.classList.add("watch-dash-speed-toast--visible");
 
     if (speedToastTimer) {
@@ -715,7 +1058,10 @@
   }
 
   function isEditableTarget(event) {
-    const path = typeof event.composedPath === "function" ? event.composedPath() : [event.target];
+    const path =
+      typeof event.composedPath === "function"
+        ? event.composedPath()
+        : [event.target];
 
     return path.some((node) => {
       if (!node || node === window || node === document) {
@@ -723,11 +1069,13 @@
       }
 
       const tagName = node.tagName ? node.tagName.toLowerCase() : "";
-      return tagName === "input" ||
+      return (
+        tagName === "input" ||
         tagName === "textarea" ||
         tagName === "select" ||
         node.isContentEditable ||
-        node.getAttribute && node.getAttribute("role") === "textbox";
+        (node.getAttribute && node.getAttribute("role") === "textbox")
+      );
     });
   }
 

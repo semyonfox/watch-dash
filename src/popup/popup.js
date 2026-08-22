@@ -4,6 +4,10 @@
   const storageKey = defaults.storageKey;
   const qualityTargets = settingsTools.qualityTargets;
   const storageWriteDelayMs = 500;
+  const statusPollIntervalMs = 1000;
+  const resetConfirmDelayMs = 3000;
+  const resetDefaultLabel = "Reset Defaults";
+  const resetArmedLabel = "Confirm Reset";
 
   let settings = settingsTools.normalize();
   let activeTab = null;
@@ -12,6 +16,7 @@
   let settingsPersistTimer = null;
   let lastStatusAnnouncement = "";
   let settingInputs = [];
+  let resetArmTimer = null;
 
   const elements = {};
 
@@ -21,11 +26,13 @@
     collectElements();
     wireEvents();
     loadSettings();
-    root.setInterval(refreshStatus, 1000);
+    root.setInterval(refreshStatus, statusPollIntervalMs);
   }
 
   function collectElements() {
-    settingInputs = Array.from(document.querySelectorAll("input[data-setting]"));
+    settingInputs = Array.from(
+      document.querySelectorAll("input[data-setting]"),
+    );
 
     for (const input of settingInputs) {
       elements[input.dataset.setting] = input;
@@ -47,11 +54,17 @@
       "increase",
       "reset",
       "openQuality",
-      "resolution",
-      "frames",
-      "lastAction",
+      "rateValue",
+      "resolutionValue",
+      "framesValue",
+      "lastActionValue",
       "statusLiveRegion",
-      "enableSite"
+      "enableSite",
+      "exportButton",
+      "importButton",
+      "resetDefaultsButton",
+      "importExportText",
+      "backupStatus",
     ]) {
       elements[id] = document.getElementById(id);
     }
@@ -86,11 +99,15 @@
     elements.qualityTarget.addEventListener("change", flushSettingsPersist);
 
     elements.decrease.addEventListener("click", () => {
-      updateSettings({ targetSpeed: settings.targetSpeed - settings.speedStep });
+      updateSettings({
+        targetSpeed: settings.targetSpeed - settings.speedStep,
+      });
     });
 
     elements.increase.addEventListener("click", () => {
-      updateSettings({ targetSpeed: settings.targetSpeed + settings.speedStep });
+      updateSettings({
+        targetSpeed: settings.targetSpeed + settings.speedStep,
+      });
     });
 
     elements.reset.addEventListener("click", () => {
@@ -119,6 +136,9 @@
       });
     }
 
+    elements.exportButton.addEventListener("click", runExport);
+    elements.importButton.addEventListener("click", runImport);
+    elements.resetDefaultsButton.addEventListener("click", handleResetDefaults);
     elements.enableSite.addEventListener("click", enableSiteAccess);
     root.addEventListener("pagehide", flushSettingsPersist);
   }
@@ -136,7 +156,10 @@
 
       api.storage.sync.get([storageKey], (result) => {
         if (api.runtime.lastError) {
-          console.warn("WatchDash could not load settings:", api.runtime.lastError.message);
+          console.warn(
+            "WatchDash could not load settings:",
+            api.runtime.lastError.message,
+          );
           renderSettings();
           refreshStatus();
           return;
@@ -162,7 +185,10 @@
 
     if (api) {
       scheduleSettingsPersist();
-      sendToActiveTab({ type: "watch-dash:set-settings", settings }, refreshFromResponse);
+      sendToActiveTab(
+        { type: "watch-dash:set-settings", settings },
+        refreshFromResponse,
+      );
     }
   }
 
@@ -195,13 +221,19 @@
       return;
     }
 
-    api.storage.sync.set({
-      [storageKey]: settingsTools.toStorageValue(nextSettings)
-    }, () => {
-      if (api.runtime.lastError) {
-        console.warn("WatchDash could not save settings:", api.runtime.lastError.message);
-      }
-    });
+    api.storage.sync.set(
+      {
+        [storageKey]: settingsTools.toStorageValue(nextSettings),
+      },
+      () => {
+        if (api.runtime.lastError) {
+          console.warn(
+            "WatchDash could not save settings:",
+            api.runtime.lastError.message,
+          );
+        }
+      },
+    );
   }
 
   function renderSettings() {
@@ -217,8 +249,12 @@
     elements.speedNumber.value = settings.targetSpeed.toFixed(2);
     elements.speedBadge.textContent = `${settings.targetSpeed.toFixed(2)}x`;
     elements.speedStep.value = settings.speedStep.toFixed(2);
-    elements.qualityTarget.value = settingsTools.qualityTargetIndex(settings.qualityTargetHeight);
-    elements.qualityTargetLabel.textContent = settingsTools.qualityTargetText(settings.qualityTargetHeight);
+    elements.qualityTarget.value = settingsTools.qualityTargetIndex(
+      settings.qualityTargetHeight,
+    );
+    elements.qualityTargetLabel.textContent = settingsTools.qualityTargetText(
+      settings.qualityTargetHeight,
+    );
     renderRangeFill(elements.speed);
     renderRangeFill(elements.qualityTarget);
 
@@ -233,9 +269,10 @@
     const min = Number(input.min);
     const max = Number(input.max);
     const value = Number(input.value);
-    const percent = Number.isFinite(min) && Number.isFinite(max) && max > min ?
-      ((value - min) / (max - min)) * 100 :
-      0;
+    const percent =
+      Number.isFinite(min) && Number.isFinite(max) && max > min
+        ? ((value - min) / (max - min)) * 100
+        : 0;
     const clamped = Math.min(100, Math.max(0, percent));
     input.style.setProperty("--range-fill", `${clamped.toFixed(2)}%`);
   }
@@ -262,7 +299,10 @@
   }
 
   function refreshFromResponse(response) {
-    if (response.settings) {
+    if (
+      response.settings &&
+      settingsTools.isSettingsPayload(response.settings)
+    ) {
       settings = settingsTools.normalize(response.settings);
       renderSettings();
     }
@@ -272,14 +312,18 @@
 
   function renderDisconnected() {
     activePlaybackSettingsUrl = null;
+    document.body.dataset.connected = "false";
     elements.platform.textContent = "Open a supported streaming tab";
     renderPlaybackSettingsButton(null);
     renderServiceMenus(null);
     renderSiteAccessButton();
-    elements.resolution.textContent = "Resolution: unavailable";
-    elements.frames.textContent = "Frames: unavailable";
-    elements.lastAction.textContent = "Last action: none";
-    announceStatusChange("WatchDash disconnected. Open a supported streaming tab.");
+    setDiagValue(elements.rateValue, "--", "unknown");
+    setDiagValue(elements.resolutionValue, "unavailable", "unknown");
+    setDiagValue(elements.framesValue, "unavailable", "unknown");
+    setDiagValue(elements.lastActionValue, "none", "unknown");
+    announceStatusChange(
+      "WatchDash disconnected. Open a supported streaming tab.",
+    );
   }
 
   function renderStatus(status) {
@@ -288,38 +332,91 @@
       return;
     }
 
-    const speed = Number.isFinite(status.activeSpeed) ? status.activeSpeed : status.targetSpeed;
+    const speed = Number.isFinite(status.activeSpeed)
+      ? status.activeSpeed
+      : status.targetSpeed;
     activePlaybackSettingsUrl = status.playbackSettingsUrl || null;
+    document.body.dataset.connected = "true";
     elements.platform.textContent = `${status.platformLabel} - ${Number(speed).toFixed(2)}x`;
     renderPlaybackSettingsButton(status);
     renderServiceMenus(status);
     elements.enableSite.hidden = true;
 
-    let resolutionText;
-    if (status.videoWidth && status.videoHeight) {
-      const targetText = settingsTools.qualityTargetText(status.qualityTargetHeight || settings.qualityTargetHeight);
-      const targetState = status.qualityTargetMet === true ? "met" : "below target";
-      resolutionText = `Resolution: ${status.videoWidth}x${status.videoHeight} (${targetState}, target ${targetText})`;
-    } else {
-      resolutionText = `Resolution: unavailable (target ${settingsTools.qualityTargetText(settings.qualityTargetHeight)})`;
-    }
-    elements.resolution.textContent = resolutionText;
+    setDiagValue(
+      elements.rateValue,
+      `${Number(speed).toFixed(2)}x`,
+      Number.isFinite(status.activeSpeed) ? "ok" : "unknown",
+    );
 
-    if (Number.isFinite(status.droppedVideoFrames) && Number.isFinite(status.totalVideoFrames)) {
-      elements.frames.textContent = `Frames: ${status.droppedVideoFrames} dropped / ${status.totalVideoFrames} total`;
+    renderResolutionRow(status);
+    renderFramesRow(status);
+
+    if (status.lastAction) {
+      setDiagValue(elements.lastActionValue, String(status.lastAction), "busy");
     } else {
-      elements.frames.textContent = "Frames: unavailable";
+      setDiagValue(elements.lastActionValue, "none", "unknown");
     }
 
-    elements.lastAction.textContent = status.lastAction ? `Last action: ${status.lastAction}` : "Last action: none";
-    announceStatusChange(statusAnnouncementText(status, speed, resolutionText));
+    announceStatusChange(statusAnnouncementText(status, speed));
   }
 
-  function statusAnnouncementText(status, speed, resolutionText) {
+  function renderResolutionRow(status) {
+    const targetText = settingsTools.qualityTargetText(
+      status.qualityTargetHeight || settings.qualityTargetHeight,
+    );
+
+    if (status.videoWidth && status.videoHeight) {
+      const state = status.qualityTargetMet === true ? "ok" : "warn";
+      const suffix =
+        status.qualityTargetMet === true
+          ? `meets ${targetText}`
+          : `below ${targetText}`;
+      setDiagValue(
+        elements.resolutionValue,
+        `${status.videoWidth} x ${status.videoHeight} (${suffix})`,
+        state,
+      );
+      return;
+    }
+
+    setDiagValue(
+      elements.resolutionValue,
+      `unavailable, target ${targetText}`,
+      "unknown",
+    );
+  }
+
+  function renderFramesRow(status) {
+    const dropped = Number(status.droppedVideoFrames);
+    const total = Number(status.totalVideoFrames);
+
+    if (!Number.isFinite(dropped) || !Number.isFinite(total)) {
+      setDiagValue(elements.framesValue, "unavailable", "unknown");
+      return;
+    }
+
+    setDiagValue(
+      elements.framesValue,
+      `${dropped} dropped / ${total} total`,
+      dropped > 0 ? "warn" : "ok",
+    );
+  }
+
+  function setDiagValue(element, text, state) {
+    element.textContent = text;
+    element.dataset.state = state;
+  }
+
+  function statusAnnouncementText(status, speed) {
     const parts = [
       `${status.platformLabel} active at ${Number(speed).toFixed(2)}x`,
-      resolutionText
     ];
+
+    if (status.videoWidth && status.videoHeight) {
+      parts.push(`resolution ${status.videoWidth} by ${status.videoHeight}`);
+    } else {
+      parts.push("resolution unavailable");
+    }
 
     if (status.lastAction) {
       parts.push(`Last action: ${status.lastAction}`);
@@ -329,7 +426,11 @@
   }
 
   function announceStatusChange(message) {
-    if (!elements.statusLiveRegion || !message || message === lastStatusAnnouncement) {
+    if (
+      !elements.statusLiveRegion ||
+      !message ||
+      message === lastStatusAnnouncement
+    ) {
       return;
     }
 
@@ -340,15 +441,23 @@
   function renderPlaybackSettingsButton(status) {
     const hasSettingsUrl = Boolean(activePlaybackSettingsUrl);
     elements.openQuality.disabled = !hasSettingsUrl;
-    elements.openQuality.textContent = hasSettingsUrl && status && status.platformLabel ?
-      `${status.platformLabel} Playback Settings` :
-      "Playback Settings Unavailable";
+    elements.openQuality.textContent =
+      hasSettingsUrl && status && status.platformLabel
+        ? `${status.platformLabel} Playback Settings`
+        : "Playback Settings Unavailable";
   }
 
   function renderSiteAccessButton() {
     const api = extensionApis();
     const pattern = activeTabOriginPattern();
-    const canRequest = Boolean(pattern && activeTab && activeTab.id && api && api.permissions && api.scripting);
+    const canRequest = Boolean(
+      pattern &&
+      activeTab &&
+      activeTab.id &&
+      api &&
+      api.permissions &&
+      api.scripting,
+    );
 
     elements.enableSite.hidden = !canRequest;
     elements.enableSite.disabled = false;
@@ -359,14 +468,24 @@
     const api = extensionApis();
     const pattern = activeTabOriginPattern();
 
-    if (!api || !api.permissions || !api.scripting || !activeTab || !activeTab.id || !pattern) {
+    if (
+      !api ||
+      !api.permissions ||
+      !api.scripting ||
+      !activeTab ||
+      !activeTab.id ||
+      !pattern
+    ) {
       return;
     }
 
     elements.enableSite.disabled = true;
     api.permissions.request({ origins: [pattern] }, (granted) => {
       if (api.runtime.lastError) {
-        console.warn("WatchDash could not request site access:", api.runtime.lastError.message);
+        console.warn(
+          "WatchDash could not request site access:",
+          api.runtime.lastError.message,
+        );
         renderSiteAccessButton();
         return;
       }
@@ -400,7 +519,7 @@
       matches: [pattern],
       js: files,
       runAt: "document_idle",
-      persistAcrossSessions: true
+      persistAcrossSessions: true,
     };
 
     api.scripting.unregisterContentScripts({ ids: [id] }, () => {
@@ -410,7 +529,10 @@
 
       api.scripting.registerContentScripts([script], () => {
         if (api.runtime.lastError) {
-          console.warn("WatchDash could not register this site:", api.runtime.lastError.message);
+          console.warn(
+            "WatchDash could not register this site:",
+            api.runtime.lastError.message,
+          );
         }
 
         callback();
@@ -427,16 +549,22 @@
       return;
     }
 
-    api.scripting.executeScript({
-      target: { tabId: activeTab.id },
-      files
-    }, () => {
-      if (api.runtime.lastError) {
-        console.warn("WatchDash could not inject this site:", api.runtime.lastError.message);
-      }
+    api.scripting.executeScript(
+      {
+        target: { tabId: activeTab.id },
+        files,
+      },
+      () => {
+        if (api.runtime.lastError) {
+          console.warn(
+            "WatchDash could not inject this site:",
+            api.runtime.lastError.message,
+          );
+        }
 
-      callback();
-    });
+        callback();
+      },
+    );
   }
 
   function activeTabOriginPattern() {
@@ -457,19 +585,32 @@
   }
 
   function contentScriptIdForPattern(pattern) {
-    return `watchdash_${String(pattern).replace(/[^a-z0-9_]/gi, "_").slice(0, 80)}`;
+    return `watchdash_${String(pattern)
+      .replace(/[^a-z0-9_]/gi, "_")
+      .slice(0, 80)}`;
   }
 
   function renderServiceMenus(status) {
-    const actionControls = status && Array.isArray(status.actionControls) ? status.actionControls : [];
-    const actionSettings = new Set(actionControls.length > 0 ?
-      actionControls.map((control) => control.setting) :
-      status && Array.isArray(status.actionSettings) ? status.actionSettings : []);
-    const actionLabels = new Map(actionControls.map((control) => [
-      control.setting,
-      control.controlLabel || control.label
-    ]));
-    const actionTiles = Array.from(document.querySelectorAll("[data-action-setting]"));
+    const actionControls =
+      status && Array.isArray(status.actionControls)
+        ? status.actionControls
+        : [];
+    const actionSettings = new Set(
+      actionControls.length > 0
+        ? actionControls.map((control) => control.setting)
+        : status && Array.isArray(status.actionSettings)
+          ? status.actionSettings
+          : [],
+    );
+    const actionLabels = new Map(
+      actionControls.map((control) => [
+        control.setting,
+        control.controlLabel || control.label,
+      ]),
+    );
+    const actionTiles = Array.from(
+      document.querySelectorAll("[data-action-setting]"),
+    );
 
     for (const tile of actionTiles) {
       const setting = tile.dataset.actionSetting;
@@ -488,9 +629,13 @@
       return;
     }
 
-    elements.youtubeAdState.textContent = status.youtubeAdShowing ? "Ad" : "Ready";
+    elements.youtubeAdState.textContent = status.youtubeAdShowing
+      ? "Ad"
+      : "Ready";
     elements.youtubeAdSpeedState.textContent = `Ad speed: ${settings.youtubeAdSpeed.toFixed(2)}x`;
-    elements.youtubeQualityState.textContent = youtubeQualityText(status.youtubeQuality);
+    elements.youtubeQualityState.textContent = youtubeQualityText(
+      status.youtubeQuality,
+    );
   }
 
   function youtubeQualityText(quality) {
@@ -507,9 +652,116 @@
     return `Quality: ${current} / ${target}`;
   }
 
+  function runExport() {
+    const exportedText = settingsTools.toExportText(settings);
+    elements.importExportText.value = exportedText;
+    elements.importExportText.focus();
+    elements.importExportText.select();
+
+    copyTextToClipboard(exportedText, (copied) => {
+      showBackupStatus(
+        copied
+          ? "Settings exported to the box and copied to your clipboard."
+          : "Settings exported below. Copy them somewhere safe.",
+        false,
+      );
+    });
+  }
+
+  function runImport() {
+    let imported;
+
+    try {
+      imported = settingsTools.parseImportedSettings(
+        elements.importExportText.value,
+      );
+    } catch (error) {
+      showBackupStatus(
+        error && error.message ? error.message : "Import failed.",
+        true,
+      );
+      return;
+    }
+
+    settings = imported;
+    renderSettings();
+    pendingStoredSettings = null;
+    writeSettingsToStorage(settings);
+    sendToActiveTab(
+      { type: "watch-dash:set-settings", settings },
+      refreshFromResponse,
+    );
+    showBackupStatus("Settings imported and applied.", false);
+  }
+
+  function handleResetDefaults() {
+    if (resetArmTimer) {
+      root.clearTimeout(resetArmTimer);
+      resetArmTimer = null;
+      performResetDefaults();
+      return;
+    }
+
+    elements.resetDefaultsButton.textContent = resetArmedLabel;
+    elements.resetDefaultsButton.classList.add("danger");
+
+    resetArmTimer = root.setTimeout(disarmResetDefaults, resetConfirmDelayMs);
+  }
+
+  function disarmResetDefaults() {
+    resetArmTimer = null;
+    elements.resetDefaultsButton.textContent = resetDefaultLabel;
+    elements.resetDefaultsButton.classList.remove("danger");
+  }
+
+  function performResetDefaults() {
+    disarmResetDefaults();
+    settings = settingsTools.normalize({});
+    renderSettings();
+    pendingStoredSettings = null;
+    writeSettingsToStorage(settings);
+    sendToActiveTab(
+      { type: "watch-dash:set-settings", settings },
+      refreshFromResponse,
+    );
+    showBackupStatus("All settings restored to defaults.", false);
+  }
+
+  function copyTextToClipboard(text, callback) {
+    const clipboard = root.navigator && root.navigator.clipboard;
+    if (clipboard && typeof clipboard.writeText === "function") {
+      clipboard.writeText(text).then(
+        () => callback(true),
+        () => callback(false),
+      );
+      return;
+    }
+
+    callback(legacyCopySelection());
+  }
+
+  function legacyCopySelection() {
+    try {
+      return document.execCommand("copy");
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function showBackupStatus(message, isError) {
+    elements.backupStatus.textContent = message;
+    elements.backupStatus.classList.toggle("error", Boolean(isError));
+  }
+
   function extensionApis() {
     const api = root.chrome;
-    if (!api || !api.tabs || !api.storage || !api.storage.sync || !api.runtime) {
+    if (
+      !api ||
+      !api.tabs ||
+      !api.storage ||
+      !api.storage.sync ||
+      !api.runtime
+    ) {
       return null;
     }
 
@@ -519,8 +771,16 @@
   // Optional-site registration must run the same ordered bundle as the static
   // manifest entry: the content modules communicate through shared globals.
   function contentScriptFiles(api) {
-    const manifest = typeof api.runtime.getManifest === "function" ? api.runtime.getManifest() : null;
-    const contentScript = manifest && Array.isArray(manifest.content_scripts) ? manifest.content_scripts[0] : null;
-    return contentScript && Array.isArray(contentScript.js) ? contentScript.js.slice() : [];
+    const manifest =
+      typeof api.runtime.getManifest === "function"
+        ? api.runtime.getManifest()
+        : null;
+    const contentScript =
+      manifest && Array.isArray(manifest.content_scripts)
+        ? manifest.content_scripts[0]
+        : null;
+    return contentScript && Array.isArray(contentScript.js)
+      ? contentScript.js.slice()
+      : [];
   }
 })(globalThis);

@@ -1,12 +1,17 @@
 (function registerWatchDashAutomation(root) {
-  const clickableSelector = "button, a, [role='button'], input[type='button'], input[type='submit']";
+  const clickableSelector =
+    "button, a, [role='button'], input[type='button'], input[type='submit']";
 
   function findActionTarget(action, options) {
     const selectorRoots = getSelectorRoots(options && options.selectorRoots);
 
     for (const selector of action.selectors || []) {
       for (const root of selectorRoots) {
-        const matches = queryElements(selector, root, options && options.queryCache);
+        const matches = queryElements(
+          selector,
+          root,
+          options && options.queryCache,
+        );
         const target = matches.map(resolveClickableElement).find(Boolean);
 
         if (target) {
@@ -23,7 +28,8 @@
   }
 
   function getSelectorRoots(roots) {
-    const candidates = Array.isArray(roots) && roots.length > 0 ? roots : [document];
+    const candidates =
+      Array.isArray(roots) && roots.length > 0 ? roots : [document];
     const seen = new Set();
     const uniqueRoots = [];
 
@@ -47,26 +53,32 @@
     const wanted = labels.map(normalizeText);
     const elements = queryElements(clickableSelector, scopeRoot || document);
 
-    return elements.find((element) => {
-      const target = resolveClickableElement(element);
+    return (
+      elements.find((element) => {
+        const target = resolveClickableElement(element);
 
-      if (!target) {
-        return false;
-      }
+        if (!target) {
+          return false;
+        }
 
-      const label = normalizeText([
-        target.getAttribute("aria-label"),
-        target.getAttribute("data-uia"),
-        target.getAttribute("data-testid"),
-        target.getAttribute("data-test-id"),
-        target.getAttribute("data-automation-id"),
-        target.getAttribute("title"),
-        target.value,
-        target.textContent
-      ].filter(Boolean).join(" "));
+        const label = normalizeText(
+          [
+            target.getAttribute("aria-label"),
+            target.getAttribute("data-uia"),
+            target.getAttribute("data-testid"),
+            target.getAttribute("data-test-id"),
+            target.getAttribute("data-automation-id"),
+            target.getAttribute("title"),
+            target.value,
+            target.textContent,
+          ]
+            .filter(Boolean)
+            .join(" "),
+        );
 
-      return wanted.some((text) => label.includes(text));
-    }) || null;
+        return wanted.some((text) => label.includes(text));
+      }) || null
+    );
   }
 
   function queryElements(selector, root, cache) {
@@ -114,9 +126,12 @@
       return child;
     }
 
-    const parent = element && typeof element.closest === "function" ?
-      element.closest("button, a, [role='button'], input[type='button'], input[type='submit']") :
-      null;
+    const parent =
+      element && typeof element.closest === "function"
+        ? element.closest(
+            "button, a, [role='button'], input[type='button'], input[type='submit']",
+          )
+        : null;
 
     return isClickable(parent) ? parent : null;
   }
@@ -126,16 +141,26 @@
       return null;
     }
 
-    return Array.from(element.querySelectorAll(clickableSelector))
-      .find(isClickable) || null;
+    return (
+      Array.from(element.querySelectorAll(clickableSelector)).find(
+        isClickable,
+      ) || null
+    );
   }
 
   function normalizeText(value) {
-    return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+    return String(value || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
   }
 
   function isClickable(element) {
-    if (!element || element.disabled || element.getAttribute("aria-disabled") === "true") {
+    if (
+      !element ||
+      element.disabled ||
+      element.getAttribute("aria-disabled") === "true"
+    ) {
       return false;
     }
 
@@ -160,7 +185,7 @@
       return false;
     }
 
-    if (rect.width <= 0 || rect.height <= 0) {
+    if (!rect || rect.width <= 0 || rect.height <= 0) {
       return false;
     }
 
@@ -171,7 +196,104 @@
       return false;
     }
 
-    return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0.01;
+    const styledVisible =
+      style.visibility !== "hidden" &&
+      style.display !== "none" &&
+      Number(style.opacity || "1") > 0.01;
+
+    if (!styledVisible) {
+      return false;
+    }
+
+    if (!isWithinViewport(rect)) {
+      return false;
+    }
+
+    return !isCoveredByOverlay(element, rect);
+  }
+
+  function isWithinViewport(rect) {
+    const width =
+      typeof window === "undefined" ? NaN : Number(window.innerWidth);
+    const height =
+      typeof window === "undefined" ? NaN : Number(window.innerHeight);
+
+    if (!Number.isFinite(width) || !Number.isFinite(height)) {
+      return true;
+    }
+
+    const left = Number(rect.left);
+    const top = Number(rect.top);
+
+    if (!Number.isFinite(left) || !Number.isFinite(top)) {
+      return true;
+    }
+
+    const right = Number.isFinite(Number(rect.right))
+      ? Number(rect.right)
+      : left + rect.width;
+    const bottom = Number.isFinite(Number(rect.bottom))
+      ? Number(rect.bottom)
+      : top + rect.height;
+
+    // Fully off-screen controls cannot be seen or reached by a user.
+    return right > 0 && bottom > 0 && left < width && top < height;
+  }
+
+  function isCoveredByOverlay(element, rect) {
+    const doc = element.ownerDocument;
+
+    if (!doc || typeof doc.elementFromPoint !== "function") {
+      return false;
+    }
+
+    const width =
+      typeof window === "undefined" ? NaN : Number(window.innerWidth);
+    const height =
+      typeof window === "undefined" ? NaN : Number(window.innerHeight);
+    let x = rect.left + rect.width / 2;
+    let y = rect.top + rect.height / 2;
+
+    x = clampToRange(x, Number.isFinite(width) ? width - 1 : x);
+    y = clampToRange(y, Number.isFinite(height) ? height - 1 : y);
+
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return false;
+    }
+
+    let hit;
+
+    try {
+      hit = doc.elementFromPoint(x, y);
+    } catch (error) {
+      return false;
+    }
+
+    return Boolean(hit) && !isSameHitRegion(element, hit);
+  }
+
+  function clampToRange(value, max) {
+    return Math.min(Math.max(value, 0), max);
+  }
+
+  function isSameHitRegion(element, hit) {
+    if (hit === element) {
+      return true;
+    }
+
+    if (typeof element.contains === "function" && element.contains(hit)) {
+      return true;
+    }
+
+    if (typeof hit.contains === "function" && hit.contains(element)) {
+      return true;
+    }
+
+    // Shadow trees retarget hit testing to the shadow host.
+    const nodeRoot =
+      typeof element.getRootNode === "function" ? element.getRootNode() : null;
+
+    return Boolean(nodeRoot && nodeRoot.host && nodeRoot.host === hit);
   }
 
   function clickElement(element) {
@@ -184,9 +306,27 @@
     dispatchPointerEvent(element, "pointerover");
     dispatchPointerEvent(element, "pointerdown");
     dispatchPointerEvent(element, "pointerup");
-    element.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, cancelable: true, view: window }));
-    element.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
-    element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
+    element.dispatchEvent(
+      new MouseEvent("mouseover", {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+      }),
+    );
+    element.dispatchEvent(
+      new MouseEvent("mousedown", {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+      }),
+    );
+    element.dispatchEvent(
+      new MouseEvent("mouseup", {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+      }),
+    );
     element.click();
   }
 
@@ -195,14 +335,16 @@
       return;
     }
 
-    element.dispatchEvent(new PointerEvent(type, {
-      bubbles: true,
-      cancelable: true,
-      pointerId: 1,
-      pointerType: "mouse",
-      isPrimary: true,
-      view: window
-    }));
+    element.dispatchEvent(
+      new PointerEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        pointerId: 1,
+        pointerType: "mouse",
+        isPrimary: true,
+        view: window,
+      }),
+    );
   }
 
   root.WatchDashAutomation = Object.freeze({
@@ -210,6 +352,6 @@
     clickElement,
     isVisibleElement,
     queryElements,
-    normalizeText
+    normalizeText,
   });
 })(globalThis);
