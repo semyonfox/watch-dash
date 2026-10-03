@@ -8,6 +8,7 @@ for (const surface of ["popup", "options"]) {
   const timers = new Map();
   const writes = [];
   const errors = [];
+  let transports = 0;
   let ready;
   let read;
   let timerId = 0;
@@ -63,6 +64,11 @@ for (const surface of ["popup", "options"]) {
   const chrome = {
     runtime: { lastError: null },
     storage: {
+      local: {
+        get(keys, callback) {
+          callback({ watchDashTelemetryEnabled: true });
+        },
+      },
       sync: {
         get(keys, callback) {
           read = callback;
@@ -75,6 +81,11 @@ for (const surface of ["popup", "options"]) {
           callback();
           chrome.runtime.lastError = null;
         },
+      },
+    },
+    permissions: {
+      contains(query, callback) {
+        callback(true);
       },
     },
     tabs: {
@@ -90,6 +101,21 @@ for (const surface of ["popup", "options"]) {
     document,
     chrome,
     console,
+    URL,
+    AbortController,
+    navigator: {
+      get doNotTrack() {
+        throw new Error("private privacy failure");
+      },
+    },
+    WatchDashTelemetryConfig: {
+      enabled: true,
+      endpoint: "https://collector.example/v1/events",
+    },
+    fetch() {
+      transports += 1;
+      return Promise.resolve({ status: 204 });
+    },
     setInterval() {},
     addEventListener() {},
     setTimeout(callback) {
@@ -99,17 +125,11 @@ for (const surface of ["popup", "options"]) {
     clearTimeout(id) {
       timers.delete(id);
     },
-    WatchDashTelemetry: {
-      configured: false,
-      onPreference() {},
-      error(category, route) {
-        errors.push({ category, route });
-      },
-    },
   });
   for (const file of [
     "src/shared/defaults.js",
     "src/shared/settings.js",
+    "src/shared/telemetry.js",
     `src/${surface}/${surface}.js`,
   ]) {
     vm.runInContext(
@@ -118,6 +138,14 @@ for (const surface of ["popup", "options"]) {
       { filename: file },
     );
   }
+  const telemetry = context.WatchDashTelemetry;
+  context.WatchDashTelemetry = {
+    ...telemetry,
+    error(category, route) {
+      errors.push({ category, route });
+      telemetry.error(category, route);
+    },
+  };
   ready();
   assert(
     controls.every((control) => control.disabled),
@@ -181,6 +209,11 @@ for (const surface of ["popup", "options"]) {
   assert.strictEqual(
     element("settingsStatus").textContent,
     "Preferences saved.",
+  );
+  assert.strictEqual(
+    transports,
+    0,
+    `${surface}: unavailable privacy signals leave UI recovery intact without transport`,
   );
 }
 
