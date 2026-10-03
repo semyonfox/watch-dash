@@ -1,28 +1,51 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>WatchDash Settings</title>
-    <link rel="stylesheet" href="options.css">
+    <link rel="stylesheet" href="options.css" />
   </head>
   <body>
     <main class="shell">
       <header class="topbar">
         <div class="brand">
-          <img class="brand-mark" src="../assets/watchdash-mark.png" alt="" width="44" height="44" aria-hidden="true">
+          <img
+            class="brand-mark"
+            src="../assets/watchdash-mark.png"
+            alt=""
+            width="44"
+            height="44"
+            aria-hidden="true"
+          />
           <div class="brand-copy">
             <h1><span>Watch</span><span>Dash</span> Settings</h1>
-            <p class="tagline">Playback speed, auto-skip, and diagnostics for supported players</p>
+            <p class="tagline">
+              Playback speed, auto-skip, and diagnostics for supported players
+            </p>
           </div>
         </div>
         <label class="power-switch" title="Enable WatchDash">
-          <input id="enabled" data-setting="enabled" type="checkbox" aria-label="Enable WatchDash">
+          <input
+            id="enabled"
+            data-setting="enabled"
+            type="checkbox"
+            aria-label="Enable WatchDash"
+          />
           <span class="switch-track" aria-hidden="true">
             <span class="switch-thumb"></span>
           </span>
         </label>
       </header>
+      <div class="save-feedback">
+        <p
+          id="settingsStatus"
+          tabindex="-1"
+          role="status"
+          aria-atomic="true"
+        ></p>
+        <button id="retrySettings" type="button" hidden>Retry</button>
+      </div>
 
       <section class="panel speed-panel" aria-labelledby="playbackHeading">
         <div class="panel-title">
@@ -32,22 +55,54 @@
         <div class="speed-row">
           <label class="field">
             <span>Target speed</span>
-            <input id="targetSpeed" type="number" min="0.25" max="16" step="0.05">
+            <input
+              id="targetSpeed"
+              type="number"
+              min="0.25"
+              max="16"
+              step="0.05"
+            />
           </label>
-          <input id="targetSpeedRange" class="range" type="range" min="0.25" max="16" step="0.05" aria-label="Target playback speed">
+          <input
+            id="targetSpeedRange"
+            class="range"
+            type="range"
+            min="0.25"
+            max="16"
+            step="0.05"
+            aria-label="Target playback speed"
+          />
         </div>
         <div class="field-grid">
           <label class="field">
             <span>Step size</span>
-            <input id="speedStep" type="number" min="0.01" max="1" step="0.01" aria-describedby="speedStepHint">
+            <input
+              id="speedStep"
+              type="number"
+              min="0.01"
+              max="1"
+              step="0.01"
+              aria-describedby="speedStepHint"
+            />
           </label>
           <label class="field">
             <span>Max speed</span>
-            <input id="maxSpeed" type="number" min="0.25" max="16" step="0.25" aria-describedby="maxSpeedHint">
+            <input
+              id="maxSpeed"
+              type="number"
+              min="0.25"
+              max="16"
+              step="0.25"
+              aria-describedby="maxSpeedHint"
+            />
           </label>
         </div>
-        <p id="speedStepHint" class="hint">How far the hotkeys and popup arrows move per press (0.01 to 1).</p>
-        <p id="maxSpeedHint" class="hint">Upper limit for every speed control (0.25 to 16).</p>
+        <p id="speedStepHint" class="hint">
+          How far the hotkeys and popup arrows move per press (0.01 to 1).
+        </p>
+        <p id="maxSpeedHint" class="hint">
+          Upper limit for every speed control (0.25 to 16).
+        </p>
       </section>
 
       <section class="panel quality-panel" aria-labelledby="qualityHeading">
@@ -55,7 +110,16 @@
           <h2 id="qualityHeading">Quality Target</h2>
           <span id="qualityTargetLabel" class="chip chip-quality">1080p</span>
         </div>
-        <input id="qualityTarget" class="range" type="range" min="0" max="4" step="1" aria-label="Quality target">
+        <input
+          id="qualityTarget"
+          class="range"
+          type="range"
+          min="0"
+          max="4"
+          step="1"
+          aria-label="Quality target"
+          aria-describedby="qualityHint"
+        />
         <div class="quality-ticks" aria-hidden="true">
           <span>480</span>
           <span>720</span>
@@ -65,22 +129,33 @@
         </div>
         <div class="toggle-grid">
           <label class="toggle-card">
-            <input id="qualityDiagnostics" data-setting="qualityDiagnostics" type="checkbox">
+            <input
+              id="qualityDiagnostics"
+              data-setting="qualityDiagnostics"
+              type="checkbox"
+            />
             <span class="tile-title">Quality Diagnostics</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
           <label class="toggle-card">
-            <input id="speedControls" data-setting="speedControls" type="checkbox">
+            <input
+              id="speedControls"
+              data-setting="speedControls"
+              type="checkbox"
+            />
             <span class="tile-title">Speed Control</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
           <label class="toggle-card">
-            <input id="hotkeys" data-setting="hotkeys" type="checkbox">
+            <input id="hotkeys" data-setting="hotkeys" type="checkbox" />
             <span class="tile-title">Hotkeys</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
         </div>
-        <p class="hint">The target compares decoded resolution against your pick. It does not force account, browser, or DRM quality.</p>
+        <p id="qualityHint" class="hint">
+          The target compares decoded resolution against your pick. It does not
+          force account, browser, or DRM quality.
+        </p>
       </section>
 
       <section class="panel" aria-labelledby="automationHeading">
@@ -89,27 +164,39 @@
         </div>
         <div class="toggle-grid wide-grid">
           <label class="toggle-card">
-            <input id="skipIntros" data-setting="skipIntros" type="checkbox">
+            <input id="skipIntros" data-setting="skipIntros" type="checkbox" />
             <span class="tile-title">Skip Intros</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
           <label class="toggle-card">
-            <input id="skipRecaps" data-setting="skipRecaps" type="checkbox">
+            <input id="skipRecaps" data-setting="skipRecaps" type="checkbox" />
             <span class="tile-title">Skip Recaps</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
           <label class="toggle-card">
-            <input id="skipCredits" data-setting="skipCredits" type="checkbox">
+            <input
+              id="skipCredits"
+              data-setting="skipCredits"
+              type="checkbox"
+            />
             <span class="tile-title">Skip Credits</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
           <label class="toggle-card">
-            <input id="autoNextEpisode" data-setting="autoNextEpisode" type="checkbox">
+            <input
+              id="autoNextEpisode"
+              data-setting="autoNextEpisode"
+              type="checkbox"
+            />
             <span class="tile-title">Next Episode</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
           <label class="toggle-card">
-            <input id="continuePlaying" data-setting="continuePlaying" type="checkbox">
+            <input
+              id="continuePlaying"
+              data-setting="continuePlaying"
+              type="checkbox"
+            />
             <span class="tile-title">Continue Playing</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
@@ -117,10 +204,20 @@
         <div class="field-grid single-field">
           <label class="field">
             <span>Click cooldown (ms)</span>
-            <input id="clickCooldownMs" type="number" min="500" max="10000" step="50" aria-describedby="cooldownHint">
+            <input
+              id="clickCooldownMs"
+              type="number"
+              min="500"
+              max="10000"
+              step="50"
+              aria-describedby="cooldownHint"
+            />
           </label>
         </div>
-        <p id="cooldownHint" class="hint">Minimum delay between automated clicks of the same control (500 to 10000).</p>
+        <p id="cooldownHint" class="hint">
+          Minimum delay between automated clicks of the same control (500 to
+          10000).
+        </p>
       </section>
 
       <section class="panel" aria-labelledby="youtubeHeading">
@@ -130,17 +227,29 @@
         </div>
         <div class="toggle-grid">
           <label class="toggle-card">
-            <input id="youtubeQualityControls" data-setting="youtubeQualityControls" type="checkbox">
+            <input
+              id="youtubeQualityControls"
+              data-setting="youtubeQualityControls"
+              type="checkbox"
+            />
             <span class="tile-title">Set Quality</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
           <label class="toggle-card">
-            <input id="youtubeAutoSkipAds" data-setting="youtubeAutoSkipAds" type="checkbox">
+            <input
+              id="youtubeAutoSkipAds"
+              data-setting="youtubeAutoSkipAds"
+              type="checkbox"
+            />
             <span class="tile-title">Skip Ads</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
           <label class="toggle-card">
-            <input id="youtubeAdSpeedup" data-setting="youtubeAdSpeedup" type="checkbox">
+            <input
+              id="youtubeAdSpeedup"
+              data-setting="youtubeAdSpeedup"
+              type="checkbox"
+            />
             <span class="tile-title">Ad Speedup</span>
             <span class="mini-switch" aria-hidden="true"></span>
           </label>
@@ -148,17 +257,29 @@
         <div class="field-grid single-field">
           <label class="field">
             <span>Ad speed (x)</span>
-            <input id="youtubeAdSpeed" type="number" min="1" max="16" step="1" aria-describedby="adSpeedHint">
+            <input
+              id="youtubeAdSpeed"
+              type="number"
+              min="1"
+              max="16"
+              step="1"
+              aria-describedby="adSpeedHint"
+            />
           </label>
         </div>
-        <p id="adSpeedHint" class="hint">Ads play at this rate, then playback restores to your pre-ad speed.</p>
+        <p id="adSpeedHint" class="hint">
+          Ads play at this rate, then playback restores to your pre-ad speed.
+        </p>
       </section>
 
       <section class="panel platforms-panel" aria-labelledby="platformsHeading">
         <div class="panel-title">
           <h2 id="platformsHeading">Platforms</h2>
         </div>
-        <p class="hint">Each card lists only what its adapter can do. Chip state follows your automation switches; cooldowns are per action.</p>
+        <p class="hint">
+          Each card lists only what its adapter can do. Chip state follows your
+          automation switches; cooldowns are per action.
+        </p>
         <div id="platformList" class="platform-list"></div>
       </section>
 
@@ -168,20 +289,67 @@
         </div>
         <label class="field">
           <span>Settings JSON</span>
-          <textarea id="importExportText" rows="6" spellcheck="false" placeholder="Export fills this box. Paste saved settings here to import." aria-describedby="backupHint"></textarea>
+          <textarea
+            id="importExportText"
+            rows="6"
+            spellcheck="false"
+            placeholder="Export fills this box. Paste saved settings here to import."
+            aria-describedby="backupHint backupStatus"
+          ></textarea>
         </label>
-        <p id="backupHint" class="hint">Export produces normalized settings for every platform.</p>
+        <p id="backupHint" class="hint">
+          Import replaces all settings. Missing values use defaults. Export
+          backs up every platform.
+        </p>
         <p id="backupStatus" role="status" class="backup-status"></p>
         <div class="backup-actions">
-          <button id="exportButton" class="primary-action" type="button">Export</button>
-          <button id="importButton" class="secondary-action" type="button">Import</button>
-          <button id="resetDefaultsButton" class="secondary-action" type="button">Reset Defaults</button>
+          <button id="exportButton" class="primary-action" type="button">
+            Export
+          </button>
+          <button id="importButton" class="secondary-action" type="button">
+            Import
+          </button>
+          <button
+            id="resetDefaultsButton"
+            class="secondary-action"
+            type="button"
+          >
+            Reset Defaults
+          </button>
+          <button
+            id="cancelReset"
+            class="secondary-action"
+            type="button"
+            hidden
+          >
+            Cancel reset
+          </button>
         </div>
+      </section>
+      <section class="panel" aria-labelledby="privacyHeading">
+        <h2 id="privacyHeading">Privacy</h2>
+        <label class="toggle-card"
+          ><input
+            id="telemetryEnabled"
+            type="checkbox"
+            aria-describedby="telemetryHint" /><span class="tile-title"
+            >Anonymous usage and errors</span
+          ><span class="mini-switch" aria-hidden="true"></span
+        ></label>
+        <p id="telemetryHint" class="hint">
+          Off until a self-hosted endpoint is configured. When enabled, sends
+          only screen/action counts and fixed error categories. No visitor
+          tracking or playback data. Counts expire after 30 days; errors after
+          14 days. Privacy signals disable collection.
+        </p>
+        <p id="telemetryStatus" role="status"></p>
       </section>
     </main>
 
     <script src="../shared/defaults.js"></script>
     <script src="../shared/settings.js"></script>
+    <script src="../shared/telemetry-config.js"></script>
+    <script src="../shared/telemetry.js"></script>
     <script src="../content/platforms.js"></script>
     <script src="options.js"></script>
   </body>

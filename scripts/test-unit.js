@@ -1130,6 +1130,155 @@ function testValidatorLoopbackExemptionCoversIpv6LoopbackOnly() {
   assert.strictEqual(normalizeHost("netflix.com"), "netflix.com");
 }
 
+function testPopupUnknownFrameCountsStayUnavailable() {
+  const elements = new Map();
+  let ready;
+  let poll;
+  let frameCounts = { droppedVideoFrames: null, totalVideoFrames: null };
+  function element(id) {
+    if (!elements.has(id)) {
+      elements.set(id, {
+        id,
+        dataset: {},
+        style: { setProperty() {} },
+        classList: { add() {}, remove() {}, toggle() {} },
+        addEventListener() {},
+        setAttribute() {},
+        querySelector() { return null; },
+      });
+    }
+    return elements.get(id);
+  }
+  const document = {
+    body: { dataset: {} },
+    addEventListener(name, listener) {
+      if (name === "DOMContentLoaded") ready = listener;
+    },
+    getElementById: element,
+    querySelectorAll() { return []; },
+  };
+  const chrome = {
+    runtime: { lastError: null },
+    storage: {
+      sync: { get(keys, callback) { callback({}); }, set() {} },
+    },
+    tabs: {
+      query(query, callback) { callback([{ id: 1 }]); },
+      sendMessage(id, message, callback) {
+        callback({
+          ok: true,
+          settings: { targetSpeed: 1 },
+          status: {
+            platform: "test",
+            platformLabel: "Test",
+            targetSpeed: 1,
+            ...frameCounts,
+          },
+        });
+      },
+    },
+  };
+  loadScripts(
+    ["src/shared/defaults.js", "src/shared/settings.js", "src/popup/popup.js"],
+    {
+      document,
+      chrome,
+      setInterval(callback) { poll = callback; },
+      addEventListener() {},
+    },
+  );
+  ready();
+  assert.strictEqual(element("framesValue").textContent, "unavailable");
+  frameCounts = { droppedVideoFrames: 0, totalVideoFrames: 42 };
+  poll();
+  assert.strictEqual(element("framesValue").textContent, "0 dropped / 42 total");
+}
+
+function testPopupIgnoresOutOfOrderSettingsResponses() {
+  const elements = new Map();
+  const requests = [];
+  let ready;
+  let poll;
+
+  function element(id) {
+    if (!elements.has(id)) {
+      const listeners = new Map();
+      elements.set(id, {
+        id,
+        dataset: {},
+        style: { setProperty() {} },
+        classList: { add() {}, remove() {}, toggle() {} },
+        addEventListener(name, listener) { listeners.set(name, listener); },
+        fire(name) { listeners.get(name)(); },
+        setAttribute() {},
+        querySelector() { return null; },
+      });
+    }
+    return elements.get(id);
+  }
+
+  loadScripts(
+    ["src/shared/defaults.js", "src/shared/settings.js", "src/popup/popup.js"],
+    {
+      document: {
+        body: { dataset: {} },
+        addEventListener(name, listener) {
+          if (name === "DOMContentLoaded") ready = listener;
+        },
+        getElementById: element,
+        querySelectorAll() { return []; },
+      },
+      chrome: {
+        runtime: { lastError: null },
+        storage: {
+          sync: { get(keys, callback) { callback({}); }, set() {} },
+        },
+        tabs: {
+          query(query, callback) { callback([{ id: 1 }]); },
+          sendMessage(id, message, callback) {
+            requests.push({ message, callback });
+          },
+        },
+      },
+      setInterval(callback) { poll = callback; },
+      addEventListener() {},
+    },
+  );
+
+  function respond(index, targetSpeed) {
+    requests[index].callback({
+      ok: true,
+      settings: { targetSpeed },
+      status: { platform: "test", platformLabel: "Test", targetSpeed },
+    });
+  }
+
+  ready();
+  element("speed").value = "1.5";
+  element("speed").fire("input");
+  poll();
+  element("speed").value = "2";
+  element("speed").fire("input");
+
+  respond(3, 2);
+  respond(0, 1);
+  respond(1, 1.5);
+  respond(2, 1.5);
+  assert.strictEqual(element("speed").value, 2);
+
+  poll();
+  respond(4, 2);
+  assert.strictEqual(element("speed").value, 2);
+
+  element("speed").value = "2.5";
+  element("speed").fire("input");
+  requests[5].callback(undefined);
+  poll();
+  respond(6, 1.75);
+  assert.strictEqual(element("speed").value, 1.75);
+}
+
+
 function testPopupStatusLiveRegionStructure() {
   const popupHtml = fs.readFileSync(
     path.join(root, "src/popup/popup.html"),
@@ -2150,3 +2299,10 @@ testValidatorLoopbackExemptionCoversIpv6LoopbackOnly();
 testPopupStatusLiveRegionStructure();
 
 console.log("Unit tests OK");
+
+testPopupUnknownFrameCountsStayUnavailable();
+testPopupIgnoresOutOfOrderSettingsResponses();
+
+require("./test-telemetry.js");
+
+require("./test-ui-recovery.js");

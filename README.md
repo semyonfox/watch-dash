@@ -63,7 +63,9 @@ No build step is required. The files in this directory are the extension.
 
 ## Privacy and Permissions
 
-WatchDash runs entirely in the browser extension context. It does not send browsing history, video metadata, playback status, or settings to a remote server.
+WatchDash does not send browsing history, video metadata, playback status, or settings to a remote server. Anonymous screen counts and fixed error categories are off by default. Collection requires explicit owner configuration in `src/shared/telemetry-config.js`, permission for that host and a local user opt-in in Settings. GPC and Do Not Track disable collection. No collector endpoint or extra permission is shipped.
+
+The self-hosted contract accepts only version, app, kind, name, surface and route. The client allows popup/settings categories, caps events at 20 per minute and 200 per page lifetime, sends one request at a time, times out after two seconds and never retries. It stores only the opt-in boolean, with no IDs, raw error messages or retry queue. The collector must aggregate counts by day, discard request metadata, expire counts after 30 days and errors after 14 days. Deployment and host permission changes require separate approval.
 
 Manifest permissions are limited to:
 

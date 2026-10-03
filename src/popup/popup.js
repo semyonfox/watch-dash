@@ -5,7 +5,6 @@
   const qualityTargets = settingsTools.qualityTargets;
   const storageWriteDelayMs = 500;
   const statusPollIntervalMs = 1000;
-  const resetConfirmDelayMs = 3000;
   const resetDefaultLabel = "Reset Defaults";
   const resetArmedLabel = "Confirm Reset";
 
@@ -16,7 +15,11 @@
   let settingsPersistTimer = null;
   let lastStatusAnnouncement = "";
   let settingInputs = [];
-  let resetArmTimer = null;
+  let resetArmed = false;
+  let storageReady = false;
+  let pendingSavedCallback = null;
+  let settingsRevision = 0;
+  let pendingSettingsRevision = null;
 
   const elements = {};
 
@@ -25,7 +28,12 @@
   function init() {
     collectElements();
     wireEvents();
+    renderSettings();
     loadSettings();
+    if (root.WatchDashTelemetry)
+      root.WatchDashTelemetry.onPreference((enabled) => {
+        if (enabled) root.WatchDashTelemetry.count("screen_view", "popup");
+      });
     root.setInterval(refreshStatus, statusPollIntervalMs);
   }
 
@@ -65,6 +73,12 @@
       "resetDefaultsButton",
       "importExportText",
       "backupStatus",
+      "cancelReset",
+      "settingsStatus",
+      "retrySettings",
+      "openSettings",
+      "connectionHelp",
+      "siteStatus",
     ]) {
       elements[id] = document.getElementById(id);
     }
@@ -83,11 +97,32 @@
     elements.speed.addEventListener("change", flushSettingsPersist);
 
     elements.speedNumber.addEventListener("change", () => {
+      if (!validNumber(elements.speedNumber)) return;
       updateSettings({ targetSpeed: Number(elements.speedNumber.value) });
       flushSettingsPersist();
     });
 
+    elements.openSettings.addEventListener("click", () => {
+      const api = extensionApis();
+      if (api && typeof api.runtime.openOptionsPage === "function")
+        api.runtime.openOptionsPage();
+    });
+    elements.speed.addEventListener("keydown", (event) => {
+      if (
+        ["ArrowLeft", "ArrowDown", "ArrowRight", "ArrowUp"].includes(event.key)
+      ) {
+        event.preventDefault();
+        updateSettings({
+          targetSpeed:
+            settings.targetSpeed +
+            (["ArrowLeft", "ArrowDown"].includes(event.key) ? -1 : 1) *
+              settings.speedStep,
+        });
+        flushSettingsPersist();
+      }
+    });
     elements.speedStep.addEventListener("change", () => {
+      if (!validNumber(elements.speedStep)) return;
       updateSettings({ speedStep: Number(elements.speedStep.value) });
       flushSettingsPersist();
     });
@@ -136,6 +171,25 @@
       });
     }
 
+    elements.cancelReset.addEventListener("click", () => {
+      disarmResetDefaults();
+      showBackupStatus("Reset cancelled. Your settings are unchanged.", false);
+      elements.resetDefaultsButton.focus();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && resetArmed) {
+        disarmResetDefaults();
+        showBackupStatus("Reset cancelled.", false);
+        elements.resetDefaultsButton.focus();
+      }
+    });
+    elements.retrySettings.addEventListener("click", () => {
+      if (!storageReady) loadSettings();
+      else flushSettingsPersist();
+    });
+    elements.importExportText.addEventListener("input", () => {
+      elements.importExportText.setAttribute("aria-invalid", "false");
+    });
     elements.exportButton.addEventListener("click", runExport);
     elements.importButton.addEventListener("click", runImport);
     elements.resetDefaultsButton.addEventListener("click", handleResetDefaults);
@@ -144,8 +198,16 @@
   }
 
   function loadSettings() {
+    setStorageReady(false);
+    showSettingsStatus("Loading preferences...", false);
     const api = extensionApis();
+    const loadRevision = settingsRevision;
     if (!api) {
+      setStorageReady(false);
+      showSettingsStatus(
+        "Open WatchDash as an extension to load and save preferences.",
+        true,
+      );
       renderSettings();
       renderDisconnected();
       return;
@@ -156,20 +218,34 @@
 
       api.storage.sync.get([storageKey], (result) => {
         if (api.runtime.lastError) {
-          console.warn(
-            "WatchDash could not load settings:",
-            api.runtime.lastError.message,
+          setStorageReady(false);
+          showSettingsStatus(
+            "Could not load preferences. Retry before changing settings.",
+            true,
           );
+          reportError("storage_failed");
           renderSettings();
           refreshStatus();
           return;
         }
 
+        if (loadRevision !== settingsRevision) {
+          refreshStatus();
+          return;
+        }
+
+        setStorageReady(true);
+        showSettingsStatus(
+          "Preferences loaded. Changes save automatically.",
+          false,
+        );
         const storedSettings = result[storageKey];
         settings = settingsTools.normalize(storedSettings);
 
         if (settingsTools.needsStorageMigration(storedSettings)) {
-          writeSettingsToStorage(settings);
+          writeSettingsToStorage(settings, () =>
+            showBackupStatus("Preferences saved.", false),
+          );
         }
 
         renderSettings();
@@ -179,21 +255,21 @@
   }
 
   function updateSettings(partial) {
+    if (!storageReady) return;
     const api = extensionApis();
     settings = settingsTools.normalize(Object.assign({}, settings, partial));
+    settingsRevision += 1;
     renderSettings();
 
     if (api) {
       scheduleSettingsPersist();
-      sendToActiveTab(
-        { type: "watch-dash:set-settings", settings },
-        refreshFromResponse,
-      );
+      sendSettingsToActiveTab();
     }
   }
 
   function scheduleSettingsPersist() {
     pendingStoredSettings = settings;
+    showSettingsStatus("Saving preferences...", false);
 
     if (settingsPersistTimer) {
       root.clearTimeout(settingsPersistTimer);
@@ -206,6 +282,8 @@
   }
 
   function flushSettingsPersist() {
+    root.clearTimeout(settingsPersistTimer);
+    settingsPersistTimer = null;
     if (!pendingStoredSettings) {
       return;
     }
@@ -215,22 +293,33 @@
     writeSettingsToStorage(nextSettings);
   }
 
-  function writeSettingsToStorage(nextSettings) {
+  function writeSettingsToStorage(nextSettings, onSaved) {
+    root.clearTimeout(settingsPersistTimer);
+    settingsPersistTimer = null;
     const api = extensionApis();
-    if (!api) {
-      return;
-    }
-
+    if (!api || !storageReady) return;
+    const revision = settingsRevision;
+    if (onSaved) pendingSavedCallback = onSaved;
     api.storage.sync.set(
-      {
-        [storageKey]: settingsTools.toStorageValue(nextSettings),
-      },
+      { [storageKey]: settingsTools.toStorageValue(nextSettings) },
       () => {
+        if (revision !== settingsRevision) return;
         if (api.runtime.lastError) {
-          console.warn(
-            "WatchDash could not save settings:",
-            api.runtime.lastError.message,
+          pendingStoredSettings = settings;
+          showSettingsStatus(
+            "Changes are not saved. Retry to keep these preferences.",
+            true,
           );
+          reportError("storage_failed");
+          if (onSaved)
+            showBackupStatus("Changes are not saved. Use Retry above.", true);
+          return;
+        }
+        showSettingsStatus("Preferences saved.", false);
+        if (pendingSavedCallback) {
+          const callback = pendingSavedCallback;
+          pendingSavedCallback = null;
+          callback();
         }
       },
     );
@@ -243,14 +332,24 @@
 
     elements.speed.min = settings.minSpeed;
     elements.speed.max = settings.maxSpeed;
+    elements.speed.step = "0.01";
     elements.speed.value = settings.targetSpeed;
+    elements.speed.setAttribute(
+      "aria-valuetext",
+      `${settings.targetSpeed.toFixed(2)} times normal speed`,
+    );
     elements.speedNumber.min = settings.minSpeed;
     elements.speedNumber.max = settings.maxSpeed;
+    elements.speedNumber.step = "0.01";
     elements.speedNumber.value = settings.targetSpeed.toFixed(2);
     elements.speedBadge.textContent = `${settings.targetSpeed.toFixed(2)}x`;
     elements.speedStep.value = settings.speedStep.toFixed(2);
     elements.qualityTarget.value = settingsTools.qualityTargetIndex(
       settings.qualityTargetHeight,
+    );
+    elements.qualityTarget.setAttribute(
+      "aria-valuetext",
+      settingsTools.qualityTargetText(settings.qualityTargetHeight),
     );
     elements.qualityTargetLabel.textContent = settingsTools.qualityTargetText(
       settings.qualityTargetHeight,
@@ -278,19 +377,55 @@
   }
 
   function refreshStatus() {
-    sendToActiveTab({ type: "watch-dash:get-status" }, refreshFromResponse);
+    const requestedRevision = settingsRevision;
+    const hadPendingSettings = pendingSettingsRevision !== null;
+    sendToActiveTab({ type: "watch-dash:get-status" }, (response) => {
+      refreshFromResponse(
+        response,
+        requestedRevision === settingsRevision &&
+          !hadPendingSettings &&
+          pendingSettingsRevision === null,
+      );
+    });
   }
 
-  function sendToActiveTab(message, callback) {
+  function sendSettingsToActiveTab() {
+    const requestedRevision = settingsRevision;
+    pendingSettingsRevision = requestedRevision;
+    sendToActiveTab(
+      { type: "watch-dash:set-settings", settings },
+      (response) => {
+        if (requestedRevision !== settingsRevision) {
+          return;
+        }
+
+        pendingSettingsRevision = null;
+        refreshFromResponse(response, true);
+      },
+      () => {
+        if (requestedRevision === settingsRevision) {
+          pendingSettingsRevision = null;
+        }
+      },
+    );
+  }
+
+  function sendToActiveTab(message, callback, onFailure) {
     const api = extensionApis();
     if (!api || !activeTab || !activeTab.id) {
       renderDisconnected();
+      if (onFailure) {
+        onFailure();
+      }
       return;
     }
 
     api.tabs.sendMessage(activeTab.id, message, (response) => {
       if (api.runtime.lastError || !response || !response.ok) {
         renderDisconnected();
+        if (onFailure) {
+          onFailure();
+        }
         return;
       }
 
@@ -298,8 +433,10 @@
     });
   }
 
-  function refreshFromResponse(response) {
+  function refreshFromResponse(response, applyResponseSettings) {
     if (
+      storageReady &&
+      applyResponseSettings &&
       response.settings &&
       settingsTools.isSettingsPayload(response.settings)
     ) {
@@ -313,7 +450,8 @@
   function renderDisconnected() {
     activePlaybackSettingsUrl = null;
     document.body.dataset.connected = "false";
-    elements.platform.textContent = "Open a supported streaming tab";
+    elements.platform.textContent = "No player connected";
+    setHidden(elements.connectionHelp, false);
     renderPlaybackSettingsButton(null);
     renderServiceMenus(null);
     renderSiteAccessButton();
@@ -337,14 +475,23 @@
       : status.targetSpeed;
     activePlaybackSettingsUrl = status.playbackSettingsUrl || null;
     document.body.dataset.connected = "true";
-    elements.platform.textContent = `${status.platformLabel} - ${Number(speed).toFixed(2)}x`;
+    const actual = Number.isFinite(status.activeSpeed);
+    const state = settings.enabled
+      ? settings.speedControls
+        ? ""
+        : "Speed control off. "
+      : "WatchDash off. ";
+    elements.platform.textContent = `${state}${status.platformLabel} · ${actual ? Number(speed).toFixed(2) + "x" : "No active video"}`;
+    setHidden(elements.connectionHelp, true);
     renderPlaybackSettingsButton(status);
     renderServiceMenus(status);
-    elements.enableSite.hidden = true;
+    setHidden(elements.enableSite, true);
 
     setDiagValue(
       elements.rateValue,
-      `${Number(speed).toFixed(2)}x`,
+      Number.isFinite(status.activeSpeed)
+        ? `${Number(speed).toFixed(2)}x`
+        : "unavailable",
       Number.isFinite(status.activeSpeed) ? "ok" : "unknown",
     );
 
@@ -387,8 +534,8 @@
   }
 
   function renderFramesRow(status) {
-    const dropped = Number(status.droppedVideoFrames);
-    const total = Number(status.totalVideoFrames);
+    const dropped = status.droppedVideoFrames;
+    const total = status.totalVideoFrames;
 
     if (!Number.isFinite(dropped) || !Number.isFinite(total)) {
       setDiagValue(elements.framesValue, "unavailable", "unknown");
@@ -409,7 +556,7 @@
 
   function statusAnnouncementText(status, speed) {
     const parts = [
-      `${status.platformLabel} active at ${Number(speed).toFixed(2)}x`,
+      `${settings.enabled ? "WatchDash on" : "WatchDash off"}. ${settings.speedControls ? "Speed control on" : "Speed control off"}. ${status.platformLabel}. ${Number.isFinite(status.activeSpeed) ? "Actual speed " + Number(speed).toFixed(2) + "x" : "No measured playback speed"}. Target ${settings.targetSpeed.toFixed(2)}x`,
     ];
 
     if (status.videoWidth && status.videoHeight) {
@@ -422,6 +569,8 @@
       parts.push(`Last action: ${status.lastAction}`);
     }
 
+    if (status.platform === "youtube")
+      parts.push(youtubeQualityText(status.youtubeQuality));
     return parts.join(". ");
   }
 
@@ -459,7 +608,7 @@
       api.scripting,
     );
 
-    elements.enableSite.hidden = !canRequest;
+    setHidden(elements.enableSite, !canRequest);
     elements.enableSite.disabled = false;
     elements.enableSite.textContent = "Enable on This Site";
   }
@@ -480,23 +629,39 @@
     }
 
     elements.enableSite.disabled = true;
+    elements.siteStatus.textContent = "Requesting access to this site...";
     api.permissions.request({ origins: [pattern] }, (granted) => {
       if (api.runtime.lastError) {
         console.warn(
           "WatchDash could not request site access:",
           api.runtime.lastError.message,
         );
+        elements.siteStatus.textContent =
+          "Could not request access. Try again.";
+        reportError("permission_failed");
         renderSiteAccessButton();
         return;
       }
 
       if (!granted) {
+        elements.siteStatus.textContent =
+          "Access was not granted. You can try again when ready.";
         renderSiteAccessButton();
         return;
       }
 
-      registerSiteContentScript(api, pattern, () => {
-        injectContentScript(api, () => {
+      registerSiteContentScript(api, pattern, (registered) => {
+        if (!registered) {
+          siteFailure();
+          return;
+        }
+        injectContentScript(api, (injected) => {
+          if (!injected) {
+            siteFailure();
+            return;
+          }
+          elements.siteStatus.textContent =
+            "Access enabled. Start a video on this site.";
           elements.enableSite.disabled = false;
           refreshStatus();
         });
@@ -510,7 +675,7 @@
 
     if (files.length === 0) {
       console.warn("WatchDash could not find its content script bundle.");
-      callback();
+      callback(false);
       return;
     }
 
@@ -535,7 +700,7 @@
           );
         }
 
-        callback();
+        callback(!api.runtime.lastError);
       });
     });
   }
@@ -545,7 +710,7 @@
 
     if (files.length === 0) {
       console.warn("WatchDash could not find its content script bundle.");
-      callback();
+      callback(false);
       return;
     }
 
@@ -562,7 +727,7 @@
           );
         }
 
-        callback();
+        callback(!api.runtime.lastError);
       },
     );
   }
@@ -615,7 +780,7 @@
     for (const tile of actionTiles) {
       const setting = tile.dataset.actionSetting;
       const title = tile.querySelector(".tile-title");
-      tile.hidden = !status || !actionSettings.has(setting);
+      setHidden(tile, !status || !actionSettings.has(setting));
 
       if (title) {
         title.textContent = actionLabels.get(setting) || title.textContent;
@@ -623,7 +788,7 @@
     }
 
     const isYouTube = Boolean(status && status.platform === "youtube");
-    elements.youtubePanel.hidden = !isYouTube;
+    setHidden(elements.youtubePanel, !isYouTube);
 
     if (!isYouTube) {
       return;
@@ -649,7 +814,7 @@
 
     const current = quality.currentLevel || "unknown";
     const target = quality.targetLevel || "auto";
-    return `Quality: ${current} / ${target}`;
+    return `Quality: current ${current}, target ${target}`;
   }
 
   function runExport() {
@@ -669,6 +834,7 @@
   }
 
   function runImport() {
+    if (!storageReady) return;
     let imported;
 
     try {
@@ -676,6 +842,8 @@
         elements.importExportText.value,
       );
     } catch (error) {
+      elements.importExportText.setAttribute("aria-invalid", "true");
+      reportError("validation_failed");
       showBackupStatus(
         error && error.message ? error.message : "Import failed.",
         true,
@@ -683,48 +851,51 @@
       return;
     }
 
+    disarmResetDefaults();
+    elements.importExportText.setAttribute("aria-invalid", "false");
     settings = imported;
+    settingsRevision += 1;
     renderSettings();
     pendingStoredSettings = null;
-    writeSettingsToStorage(settings);
-    sendToActiveTab(
-      { type: "watch-dash:set-settings", settings },
-      refreshFromResponse,
+    writeSettingsToStorage(settings, () =>
+      showBackupStatus("Preferences saved.", false),
     );
-    showBackupStatus("Settings imported and applied.", false);
+    sendSettingsToActiveTab();
   }
 
   function handleResetDefaults() {
-    if (resetArmTimer) {
-      root.clearTimeout(resetArmTimer);
-      resetArmTimer = null;
+    if (!storageReady) return;
+    if (resetArmed) {
       performResetDefaults();
       return;
     }
-
+    resetArmed = true;
     elements.resetDefaultsButton.textContent = resetArmedLabel;
     elements.resetDefaultsButton.classList.add("danger");
-
-    resetArmTimer = root.setTimeout(disarmResetDefaults, resetConfirmDelayMs);
+    elements.cancelReset.hidden = false;
+    showBackupStatus(
+      "Reset replaces all preferences with defaults. Confirm reset or cancel when ready.",
+      false,
+    );
   }
 
   function disarmResetDefaults() {
-    resetArmTimer = null;
+    resetArmed = false;
     elements.resetDefaultsButton.textContent = resetDefaultLabel;
     elements.resetDefaultsButton.classList.remove("danger");
+    elements.cancelReset.hidden = true;
   }
 
   function performResetDefaults() {
     disarmResetDefaults();
     settings = settingsTools.normalize({});
+    settingsRevision += 1;
     renderSettings();
     pendingStoredSettings = null;
-    writeSettingsToStorage(settings);
-    sendToActiveTab(
-      { type: "watch-dash:set-settings", settings },
-      refreshFromResponse,
+    writeSettingsToStorage(settings, () =>
+      showBackupStatus("Preferences saved.", false),
     );
-    showBackupStatus("All settings restored to defaults.", false);
+    sendSettingsToActiveTab();
   }
 
   function copyTextToClipboard(text, callback) {
@@ -751,6 +922,51 @@
   function showBackupStatus(message, isError) {
     elements.backupStatus.textContent = message;
     elements.backupStatus.classList.toggle("error", Boolean(isError));
+  }
+
+  function showSettingsStatus(message, isError) {
+    elements.settingsStatus.textContent = message;
+    elements.settingsStatus.classList.toggle("error", Boolean(isError));
+    if (!isError && document.activeElement === elements.retrySettings)
+      elements.settingsStatus.focus();
+    elements.retrySettings.hidden = !isError;
+  }
+
+  function setStorageReady(ready) {
+    storageReady = ready;
+    for (const input of document.querySelectorAll(
+      "input:not(#telemetryEnabled), [data-speed], #importButton, #resetDefaultsButton, #exportButton, #decrease, #increase, #reset",
+    ))
+      input.disabled = !ready;
+  }
+
+  function validNumber(input) {
+    if (input.value.trim() && Number.isFinite(Number(input.value))) return true;
+    showSettingsStatus("Enter a number within the displayed limits.", false);
+    renderSettings();
+    return false;
+  }
+
+  function reportError(category) {
+    if (root.WatchDashTelemetry)
+      root.WatchDashTelemetry.error(category, "popup");
+  }
+
+  function setHidden(element, hidden) {
+    if (
+      hidden &&
+      typeof element.contains === "function" &&
+      element.contains(document.activeElement)
+    )
+      elements.openSettings.focus();
+    element.hidden = hidden;
+  }
+
+  function siteFailure() {
+    elements.siteStatus.textContent =
+      "Site activation failed. Try again or reload the tab.";
+    reportError("permission_failed");
+    renderSiteAccessButton();
   }
 
   function extensionApis() {
