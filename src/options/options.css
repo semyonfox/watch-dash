@@ -8,7 +8,7 @@
   --text: #ccd3d9;
   --muted: #99a3ad;
   --muted-strong: #b9c2cb;
-  --faint: #6d7883;
+  --faint: #99a3ad;
   --border: #272d33;
   --border-strong: #3c444d;
   --accent: #2fa46e;
@@ -58,7 +58,7 @@ body {
   color: var(--text);
   /* common cross-platform UI faces with explicit fallbacks */
   font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.5;
 }
 
@@ -186,7 +186,7 @@ p {
 
 h1 {
   color: var(--ink);
-  font-size: 17px;
+  font-size: 1.0625rem;
   font-weight: 700;
   line-height: 1.25;
   letter-spacing: -0.01em;
@@ -199,7 +199,7 @@ h1 span + span {
 .tagline {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .panel {
@@ -220,7 +220,7 @@ h1 span + span {
 
 .panel-title h2 {
   color: var(--muted-strong);
-  font-size: 10.5px;
+  font-size: 0.65625rem;
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -234,7 +234,7 @@ h1 span + span {
   color: var(--muted-strong);
   padding: 2px 9px;
   text-align: center;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -341,7 +341,7 @@ h1 span + span {
   display: grid;
   gap: 4px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -363,7 +363,7 @@ h1 span + span {
   color: var(--ink);
   text-align: center;
   font-family: var(--mono);
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 700;
 }
 
@@ -451,7 +451,7 @@ input[type="number"]::-webkit-outer-spin-button {
   gap: var(--gap);
   margin-bottom: 4px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: center;
@@ -514,7 +514,7 @@ input[type="number"]::-webkit-outer-spin-button {
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--muted-strong);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.25;
 }
@@ -548,7 +548,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .platform-list {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
 }
 
 .platform-card {
@@ -568,7 +568,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .platform-card h3 {
   color: var(--ink);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   line-height: 1.3;
 }
@@ -577,7 +577,7 @@ input[type="number"]::-webkit-outer-spin-button {
   overflow: hidden;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 0.65625rem;
   line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -601,7 +601,7 @@ input[type="number"]::-webkit-outer-spin-button {
   border-radius: 999px;
   background: var(--surface-2);
   padding: 2px 9px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   line-height: 1.5;
 }
@@ -633,7 +633,7 @@ input[type="number"]::-webkit-outer-spin-button {
   color: var(--text);
   padding: 8px 10px;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 0.6875rem;
   line-height: 1.5;
 }
 
@@ -643,13 +643,13 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .hint {
   color: var(--faint);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
 .backup-status {
   min-height: 1.4em;
   color: var(--accent-bright);
-  font-size: 12px;
+  font-size: 0.75rem;
   overflow-wrap: anywhere;
 }
 
@@ -703,4 +703,156 @@ input[type="number"]::-webkit-outer-spin-button {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+.save-feedback {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.save-feedback p {
+  flex: 1;
+  color: var(--muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.save-feedback p.error {
+  color: var(--danger);
+}
+.power-switch {
+  min-height: 44px;
+  align-items: center;
+}
+.range {
+  height: 44px;
+}
+.platform,
+.inline-status {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+summary {
+  cursor: pointer;
+  color: var(--muted-strong);
+  padding: 8px 0;
+  font-weight: 600;
+}
+summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.player-help p {
+  margin-top: 8px;
+}
+.backup-panel[open] > :not(summary) {
+  margin-top: 10px;
+}
+.cap .cap-state {
+  margin-left: 6px;
+  font-weight: 400;
+}
+@media (max-width: 420px) {
+  .presets {
+    grid-template-columns: repeat(auto-fit, minmax(3.3rem, 1fr));
+  }
+  .presets button,
+  button,
+  .field input {
+    min-height: 44px;
+  }
+  .speed-row,
+  .field-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .backup-actions {
+    grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+  }
+  .brand-mark {
+    display: none;
+  }
+  .brand {
+    display: block;
+  }
+  .field input,
+  .backup-panel textarea {
+    font-size: 1rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+@media (forced-colors: active) {
+  .power-switch input {
+    position: static;
+    opacity: 1;
+    width: 32px;
+    height: 32px;
+  }
+  .power-switch .switch-track,
+  .mini-switch {
+    display: none;
+  }
+  .toggle-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .toggle-card > input {
+    appearance: auto;
+    position: static;
+    width: 24px;
+    height: 24px;
+  }
+  .range {
+    appearance: auto;
+  }
+  .range::-webkit-slider-thumb {
+    appearance: auto;
+    background: ButtonText;
+    border-color: Canvas;
+  }
+  .range::-webkit-slider-runnable-track {
+    background: GrayText;
+  }
+  button,
+  input,
+  textarea,
+  summary {
+    border-color: ButtonText;
+  }
+  button[aria-pressed="true"] {
+    border: 3px solid Highlight;
+  }
+  :focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+.shell,
+.panel,
+.player-help {
+  min-width: 0;
+}
+.panel-title {
+  flex-wrap: wrap;
+}
+@media (max-width: 25rem) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+  .brand {
+    flex: 1 1 100%;
+  }
+  .speed-tools {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+#settingsStatus:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
