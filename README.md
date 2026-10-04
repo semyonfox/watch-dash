@@ -14,6 +14,7 @@ Manifest V3 browser extension for streaming playback utilities across the major 
 - Platform coverage:
   - Full adapter detection and speed controls on Netflix, Prime Video/Amazon, Disney+, HBO Max/Max, Hulu, Apple TV+, Peacock, Paramount+, YouTube, Crunchyroll, Tubi, The Roku Channel, Pluto TV, and local Jellyfin.
   - Jellyfin is detected by app signals on localhost or 127.0.0.1 `/web/` or `/jellyfin/` routes.
+  - On other sites, use **Enable on This Site** in the popup. Once access is granted, WatchDash controls an HTML5 video there. Its skip buttons remain limited to known platform adapters. Remote Jellyfin pages use their adapter when the app shell is detected.
 - Platform-specific popup controls:
   - YouTube exposes quality, ad skip, and ad speed controls.
   - Other services only show the automation toggles their adapter can use.
@@ -63,16 +64,14 @@ No build step is required. The files in this directory are the extension.
 
 ## Privacy and Permissions
 
-WatchDash does not send browsing history, video metadata, playback status, or settings to a remote server. Anonymous screen counts and fixed error categories are off by default. Collection requires explicit owner configuration in `src/shared/telemetry-config.js`, permission for that host and a local user opt-in in Settings. GPC and Do Not Track disable collection. No collector endpoint or extra permission is shipped.
-
-The self-hosted contract accepts only version, app, kind, name, surface and route. The client allows popup/settings categories, caps events at 20 per minute and 200 per page lifetime, sends one request at a time, times out after two seconds and never retries. It stores only the opt-in boolean, with no IDs, raw error messages or retry queue. The collector must aggregate counts by day, discard request metadata, expire counts after 30 days and errors after 14 days. Deployment and host permission changes require separate approval.
+WatchDash has no application server and does not send browsing history, video metadata, or playback status to one. Settings use the browser's sync storage, which may sync them through the browser provider when sync is enabled.
 
 Manifest permissions are limited to:
 
 - `activeTab` and `scripting`, so the popup can activate controls for the current tab when supported.
-- `storage`, so presets, automation toggles, and quality targets can persist locally in browser extension storage.
+- `storage`, so presets, automation toggles, and quality targets can persist in browser extension sync storage.
 - Listed streaming host permissions, so content scripts can run only on supported player sites by default.
-- Optional `http://*/*` and `https://*/*` host access, reserved for user-enabled generic HTML5 video sites instead of being active by default.
+- Optional `http://*/*` and `https://*/*` host access, requested for the current site only when you choose **Enable on This Site**.
 
 ## Quality Approach
 

@@ -52,34 +52,48 @@
 
   function detectPlatform() {
     const host = location.hostname.replace(/^www\./, "").toLowerCase();
-
-    return (
-      platforms.find((platform) => {
-        const hostPatterns = platform.hostPatterns || [];
-        const hostMatches = hostPatterns.some(
-          (pattern) => host === pattern || host.endsWith(`.${pattern}`),
-        );
-        const hasDetector = typeof platform.detect === "function";
-
-        // detector-only platforms are local apps, so their dom probes never need
-        // to run on regular streaming sites where they cannot match anyway
-        const detectorAllowed =
-          hasDetector && (hostPatterns.length > 0 || isLocalAddress(host));
-
-        if (!hostMatches && !detectorAllowed) {
-          return false;
-        }
-
-        const detectorMatches =
-          detectorAllowed && runPlatformDetector(platform);
-
-        if (hasDetector && hostPatterns.length > 0) {
-          return hostMatches && detectorMatches;
-        }
-
-        return hostMatches || detectorMatches;
-      }) || null
+    const isRegisteredHost = platforms.some((platform) =>
+      (platform.hostPatterns || []).some(
+        (pattern) => host === pattern || host.endsWith(`.${pattern}`),
+      ),
     );
+
+    const detected = platforms.find((platform) => {
+      const hostPatterns = platform.hostPatterns || [];
+      const hostMatches = hostPatterns.some(
+        (pattern) => host === pattern || host.endsWith(`.${pattern}`),
+      );
+      const hasDetector = typeof platform.detect === "function";
+
+      // dynamic registration only reaches other hosts after a user grants access
+      const detectorAllowed =
+        hasDetector &&
+        (hostPatterns.length > 0 || isLocalAddress(host) || !isRegisteredHost);
+
+      if (!hostMatches && !detectorAllowed) {
+        return false;
+      }
+
+      const detectorMatches = detectorAllowed && runPlatformDetector(platform);
+
+      if (hasDetector && hostPatterns.length > 0) {
+        return hostMatches && detectorMatches;
+      }
+
+      return hostMatches || detectorMatches;
+    });
+
+    if (detected) {
+      return detected;
+    }
+
+    // the static manifest covers registered hosts and loopback; another host
+    // only runs this bundle after explicit per-site activation in the popup
+    if (!isRegisteredHost && !isLocalAddress(host) && media.listVideos().length) {
+      return { id: "generic", label: "HTML5 video", actions: [] };
+    }
+
+    return null;
   }
 
   function isLocalAddress(host) {
