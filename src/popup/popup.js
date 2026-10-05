@@ -217,6 +217,11 @@
       activeTab = tabs[0] || null;
 
       api.storage.sync.get([storageKey], (result) => {
+        if (loadRevision !== settingsRevision) {
+          refreshStatus();
+          return;
+        }
+
         if (api.runtime.lastError) {
           setStorageReady(false);
           showSettingsStatus(
@@ -858,7 +863,7 @@
     renderSettings();
     pendingStoredSettings = null;
     writeSettingsToStorage(settings, () =>
-      showBackupStatus("Preferences saved.", false),
+      showBackupStatus("Settings imported and applied.", false),
     );
     sendSettingsToActiveTab();
   }
@@ -893,7 +898,7 @@
     renderSettings();
     pendingStoredSettings = null;
     writeSettingsToStorage(settings, () =>
-      showBackupStatus("Preferences saved.", false),
+      showBackupStatus("All settings restored to defaults.", false),
     );
     sendSettingsToActiveTab();
   }
