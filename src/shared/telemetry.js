@@ -44,12 +44,16 @@
   }
 
   function optedOut() {
-    const nav = root.navigator || {};
-    return (
-      nav.globalPrivacyControl === true ||
-      nav.doNotTrack === "1" ||
-      root.doNotTrack === "1"
-    );
+    try {
+      const nav = root.navigator || {};
+      return (
+        nav.globalPrivacyControl === true ||
+        nav.doNotTrack === "1" ||
+        root.doNotTrack === "1"
+      );
+    } catch {
+      return true;
+    }
   }
 
   function notifyPreference() {
@@ -99,83 +103,106 @@
   }
 
   function send(kind, name, route) {
-    if (
-      !endpoint ||
-      !enabled ||
-      optedOut() ||
-      inFlight ||
-      lifetime >= 200 ||
-      !routes.has(route) ||
-      !(kind === "count" ? counts : errors).has(name)
-    )
-      return;
-    if (
-      !api ||
-      !api.permissions ||
-      typeof api.permissions.contains !== "function" ||
-      typeof root.fetch !== "function" ||
-      typeof root.AbortController !== "function"
-    )
-      return;
-    const now = Date.now();
-    if (now - minuteStart >= 60000) {
-      minuteStart = now;
-      minuteCount = 0;
-    }
-    if (minuteCount >= 20) return;
-    const errorKey = name + ":" + route;
-    if (
-      kind === "error" &&
-      lastErrors.has(errorKey) &&
-      now - lastErrors.get(errorKey) < 60000
-    )
-      return;
-    if (kind === "error") lastErrors.set(errorKey, now);
-    minuteCount += 1;
-    lifetime += 1;
-    inFlight = true;
-    const controller = new root.AbortController();
+    let timeout;
+    let ownsRequest = false;
     let finished = false;
     const finish = () => {
       if (finished) return;
       finished = true;
-      inFlight = false;
-      root.clearTimeout(timeout);
+      if (ownsRequest) inFlight = false;
+      try {
+        if (timeout !== undefined) root.clearTimeout(timeout);
+      } catch {
+        // cleanup failure must not hold the request slot
+      }
     };
-    const timeout = root.setTimeout(() => {
-      controller.abort();
-      finish();
-    }, 2000);
     try {
+      if (
+        !endpoint ||
+        !enabled ||
+        optedOut() ||
+        inFlight ||
+        lifetime >= 200 ||
+        !(kind === "count" ? counts : errors).has(name)
+      )
+        return;
+      if (
+        !api ||
+        !api.permissions ||
+        typeof api.permissions.contains !== "function" ||
+        typeof root.fetch !== "function" ||
+        typeof root.AbortController !== "function"
+      )
+        return;
+      const normalizedRoute = routes.has(route) ? route : "app";
+      const now = Date.now();
+      if (now - minuteStart >= 60000) {
+        minuteStart = now;
+        minuteCount = 0;
+      }
+      if (minuteCount >= 20) return;
+      const errorKey = name + ":" + normalizedRoute;
+      if (
+        kind === "error" &&
+        lastErrors.has(errorKey) &&
+        now - lastErrors.get(errorKey) < 60000
+      )
+        return;
+      if (kind === "error") lastErrors.set(errorKey, now);
+      minuteCount += 1;
+      lifetime += 1;
+      ownsRequest = true;
+      inFlight = true;
+      const controller = new root.AbortController();
+      const revision = preferenceRevision;
+      timeout = root.setTimeout(() => {
+        try {
+          controller.abort();
+        } catch {
+          // optional transport cancellation must not escape
+        } finally {
+          finish();
+        }
+      }, 2000);
       api.permissions.contains(
         { origins: [endpoint.origin + "/*"] },
         (allowed) => {
           if (finished) return;
-          if (api.runtime.lastError || !allowed || !enabled || optedOut()) {
+          try {
+            if (
+              api.runtime.lastError ||
+              !allowed ||
+              !enabled ||
+              revision !== preferenceRevision ||
+              optedOut()
+            ) {
+              finish();
+              return;
+            }
+            const body = JSON.stringify({
+              version: 1,
+              app: "watch-dash",
+              kind,
+              name,
+              surface: "extension",
+              route: normalizedRoute,
+            });
+            Promise.resolve(
+              root.fetch(endpoint.href, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body,
+                credentials: "omit",
+                referrerPolicy: "no-referrer",
+                redirect: "error",
+                signal: controller.signal,
+              }),
+            )
+              .catch(() => {})
+              .finally(finish);
+          } catch {
             finish();
-            return;
           }
-          const body = JSON.stringify({
-            version: 1,
-            app: "watch-dash",
-            kind,
-            name,
-            surface: "extension",
-            route,
-          });
-          Promise.resolve(
-            root.fetch(endpoint.href, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body,
-              credentials: "omit",
-              referrerPolicy: "no-referrer",
-              redirect: "error",
-              signal: controller.signal,
-            }),
-          )
-            .catch(() => {})
-            .finally(finish);
         },
       );
     } catch {
