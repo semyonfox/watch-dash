@@ -298,7 +298,7 @@ function testAutomationSelectorRootsAndQueryCacheAvoidRepeatedScans() {
 }
 
 function testPlatformActionsDedupeSelectorsAtRegistration() {
-  const context = loadScripts(["src/content/platforms.js"], {
+  const context = loadScripts(["src/content/adapter-common.js", "src/content/adapter-detection.js", "src/content/adapters/netflix.js", "src/content/adapters/streaming.js", "src/content/adapters/youtube.js", "src/content/adapters/jellyfin.js", "src/content/platforms.js"], {
     document: {
       title: "",
       querySelector() {
@@ -939,7 +939,7 @@ function testYouTubeBridgeRegistrationHandshakeAndOriginGuard() {
 }
 
 function testYouTubeSelectorsFromPlayerProbe() {
-  const context = loadScripts(["src/content/platforms.js"], {
+  const context = loadScripts(["src/content/adapter-common.js", "src/content/adapter-detection.js", "src/content/adapters/netflix.js", "src/content/adapters/streaming.js", "src/content/adapters/youtube.js", "src/content/adapters/jellyfin.js", "src/content/platforms.js"], {
     document: {
       querySelector() {
         return null;
@@ -990,7 +990,7 @@ function testYouTubeSelectorsFromPlayerProbe() {
 }
 
 function testPrimeVideoDetectorAvoidsGeneralAmazonPages() {
-  const context = loadScripts(["src/content/platforms.js"], {
+  const context = loadScripts(["src/content/adapter-common.js", "src/content/adapter-detection.js", "src/content/adapters/netflix.js", "src/content/adapters/streaming.js", "src/content/adapters/youtube.js", "src/content/adapters/jellyfin.js", "src/content/platforms.js"], {
     document: {
       querySelector() {
         return null;
@@ -1892,7 +1892,7 @@ function makeJellyfinDoc({
 }
 
 function testJellyfinDetectorSignalGating() {
-  const context = loadScripts(["src/content/platforms.js"], {
+  const context = loadScripts(["src/content/adapter-common.js", "src/content/adapter-detection.js", "src/content/adapters/netflix.js", "src/content/adapters/streaming.js", "src/content/adapters/youtube.js", "src/content/adapters/jellyfin.js", "src/content/platforms.js"], {
     document: {
       title: "",
       querySelector() {
@@ -1979,7 +1979,7 @@ function testJellyfinDetectorSignalGating() {
 }
 
 function testPrimeVideoDetectorHostNormalization() {
-  const context = loadScripts(["src/content/platforms.js"], {
+  const context = loadScripts(["src/content/adapter-common.js", "src/content/adapter-detection.js", "src/content/adapters/netflix.js", "src/content/adapters/streaming.js", "src/content/adapters/youtube.js", "src/content/adapters/jellyfin.js", "src/content/platforms.js"], {
     document: {
       querySelector() {
         return null;
@@ -2017,7 +2017,7 @@ function testPrimeVideoDetectorHostNormalization() {
 
 function testPlatformRegistryIntegrity() {
   const context = loadScripts(
-    ["src/shared/defaults.js", "src/content/platforms.js"],
+    ["src/shared/defaults.js", "src/content/adapter-common.js", "src/content/adapter-detection.js", "src/content/adapters/netflix.js", "src/content/adapters/streaming.js", "src/content/adapters/youtube.js", "src/content/adapters/jellyfin.js", "src/content/platforms.js"],
     {
       document: {
         title: "",
@@ -2133,7 +2133,7 @@ function testPlatformRegistryIntegrity() {
 }
 
 function testPlatformExtensionPrependsSpecificSelectors() {
-  const context = loadScripts(["src/content/platforms.js"], {
+  const context = loadScripts(["src/content/adapter-common.js", "src/content/adapter-detection.js", "src/content/adapters/netflix.js", "src/content/adapters/streaming.js", "src/content/adapters/youtube.js", "src/content/adapters/jellyfin.js", "src/content/platforms.js"], {
     document: {
       querySelector() {
         return null;

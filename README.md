@@ -85,7 +85,9 @@ See [docs/research.md](docs/research.md) for market notes, licensing notes, and 
 
 - `src/shared/defaults.js` owns default setting values.
 - `src/shared/settings.js` owns setting normalization, numeric clamping, and quality target formatting.
-- `src/content/platforms.js` owns platform adapters, hosts, selectors, and platform capabilities.
+- `src/content/adapter-common.js` owns shared action factories and selectors.
+- `src/content/adapter-detection.js` owns app and path detection.
+- `src/content/platforms.js` is the platform data registry, including selector extensions and capabilities.
 - `src/content/media.js` owns active video selection and playback-quality reads.
 - `src/content/automation.js` owns action target lookup, visibility checks, and click dispatch.
 - `src/content/watch-dash.js` owns the generic runtime loop: platform detection, speed policy, automation orchestration, status, and hotkeys.
