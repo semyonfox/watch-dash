@@ -1609,6 +1609,7 @@ function testDefaultsContract() {
       youtubeAdSpeed: 16,
       youtubeAutoSkipAds: true,
       clickCooldownMs: 1600,
+      actionTimings: context.WatchDashDefaults.defaultSettings.actionTimings,
       speedMemory: "global",
       platformSpeeds: context.WatchDashDefaults.defaultSettings.platformSpeeds,
       originSpeeds: context.WatchDashDefaults.defaultSettings.originSpeeds,
@@ -2606,4 +2607,22 @@ testContentInitializationPreservesVideoPreload(true);
   assert(tools.matchesHotkey({key:"+", shiftKey:true}, "Shift+key:+"));
   assert.strictEqual(tools.normalize({increaseHotkey:""}).increaseHotkey, "");
   assert.strictEqual(tools.parseHotkey("Ctrl+key:a"), null);
+}
+
+{
+  const tools = loadSettingsTools().WatchDashSettings;
+  const settings = tools.normalize({ clickCooldownMs: 2000, actionTimings: { "skip-intro": { delayMs: 500, cooldownMs: 700 } } });
+  assert.strictEqual(tools.actionTiming(settings, {id:"skip-intro", cooldownMs:900}).cooldownMs, 700);
+  assert.strictEqual(tools.actionTiming(settings, {id:"next-video", cooldownMs:90000}).cooldownMs, 90000);
+  assert.strictEqual(tools.actionTiming(settings, {id:"skip-recap"}).cooldownMs, 2000);
+  const gate = loadScripts(["src/content/automation.js"]).WatchDashAutomation.createDelayGate();
+  const target = {};
+  assert(!gate.ready("intro", target, 1000, 500));
+  assert(!gate.ready("intro", target, 1499, 500));
+  assert(gate.ready("intro", target, 1500, 500));
+  assert(!gate.ready("intro", null, 1600, 500));
+  assert(!gate.ready("intro", target, 1700, 500));
+  assert(!gate.ready("intro", {}, 2200, 500));
+  gate.clear();
+  assert(gate.ready("intro", target, 0, 0));
 }

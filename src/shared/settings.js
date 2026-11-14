@@ -73,12 +73,28 @@
       next[key] = typeof input[key] === "string" && (input[key] === "" || parseHotkey(input[key]))
         ? input[key] : defaults.defaultSettings[key];
     }
+    next.actionTimings = {};
+    for (const id of ["skip-intro", "skip-recap", "skip-credits", "continue-playing", "next-episode", "next-video", "skip-ad"]) {
+      const timing = input.actionTimings?.[id];
+      if (!timing || typeof timing !== "object") continue;
+      next.actionTimings[id] = { delayMs: clampNumber(timing.delayMs, 0, 30000, 0) };
+      if (timing.cooldownMs !== undefined && timing.cooldownMs !== null && timing.cooldownMs !== "")
+        next.actionTimings[id].cooldownMs = clampNumber(timing.cooldownMs, 500, 120000, next.clickCooldownMs);
+    }
     next.speedMemory = ["global", "platform", "site"].includes(input.speedMemory) ? input.speedMemory : "global";
     next.platformSpeeds = cleanSpeeds(input.platformSpeeds, false, next);
     next.originSpeeds = cleanSpeeds(input.originSpeeds, true, next);
     next.disabledOrigins = Array.isArray(input.disabledOrigins)
       ? [...new Set(input.disabledOrigins.filter(validOrigin))].slice(0, 20) : [];
     return next;
+  }
+
+  function actionTiming(settings, action) {
+    const override = settings.actionTimings[action.id];
+    return {
+      delayMs: override?.delayMs ?? 0,
+      cooldownMs: override?.cooldownMs ?? (action.cooldownMs || settings.clickCooldownMs),
+    };
   }
 
   function parseHotkey(binding) {
@@ -264,6 +280,7 @@
   }
 
   root.WatchDashSettings = Object.freeze({
+    actionTiming,
     parseHotkey,
     matchesHotkey,
     validOrigin,

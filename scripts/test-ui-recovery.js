@@ -66,6 +66,7 @@ for (const surface of ["popup", "options"]) {
     querySelectorAll(selector) {
       return selector.startsWith("input:not") ? controls : [];
     },
+    createElement(tag) { return element(`created-${elements.size}-${tag}`); },
     createDocumentFragment() {
       return { appendChild() {} };
     },

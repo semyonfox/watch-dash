@@ -347,7 +347,21 @@
     );
   }
 
+  function createDelayGate() {
+    const pending = new Map();
+    return {
+      clear(id) { if (id === undefined) pending.clear(); else pending.delete(id); },
+      ready(id, target, now, delayMs) {
+        if (!target) { pending.delete(id); return false; }
+        const previous = pending.get(id);
+        if (!previous || previous.target !== target) pending.set(id, { target, since: now });
+        return now - pending.get(id).since >= delayMs;
+      },
+    };
+  }
+
   root.WatchDashAutomation = Object.freeze({
+    createDelayGate,
     findActionTarget,
     clickElement,
     isVisibleElement,

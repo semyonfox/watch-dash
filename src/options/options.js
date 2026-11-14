@@ -32,6 +32,7 @@
   function init() {
     collectElements();
     buildPlatformCards();
+    buildTimingControls();
     wireEvents();
     renderSettings();
     loadSettings();
@@ -39,6 +40,38 @@
       root.WatchDashTelemetry.onPreference((enabled) => {
         if (enabled) root.WatchDashTelemetry.count("screen_view", "settings");
       });
+  }
+
+  const timingInputs = [];
+
+  function buildTimingControls() {
+    const container = document.getElementById("actionTimings");
+    for (const [id, name] of Object.entries({ "skip-intro": "Intro", "skip-recap": "Recap", "skip-credits": "Credits", "continue-playing": "Continue playing", "next-episode": "Next episode", "next-video": "YouTube next video", "skip-ad": "YouTube skip ad" })) {
+      for (const field of ["delayMs", "cooldownMs"]) {
+        const label = document.createElement("label");
+        const input = document.createElement("input");
+        input.type = "number";
+        input.min = field === "delayMs" ? "0" : "500";
+        input.max = field === "delayMs" ? "30000" : "120000";
+        input.step = "100";
+        input.placeholder = field === "delayMs" ? "0" : "Adapter default";
+        input.id = `timing-${id}-${field}`;
+        label.htmlFor = input.id;
+        label.textContent = `${name} ${field === "delayMs" ? "delay" : "cooldown"} (ms)`;
+        label.className = "field";
+        label.appendChild(input);
+        container.appendChild(label);
+        timingInputs.push({id, field, input});
+        input.addEventListener("change", () => {
+          if (input.value && !validNumber(input)) return;
+          const timing = { ...settings.actionTimings[id] };
+          if (!input.value) delete timing[field];
+          else timing[field] = Number(input.value);
+          updateSettings({ actionTimings: { ...settings.actionTimings, [id]: timing } });
+          flushSettingsPersist();
+        });
+      }
+    }
   }
 
   function collectElements() {
@@ -306,6 +339,7 @@
   }
 
   function renderSettings() {
+    for (const {id, field, input} of timingInputs) input.value = settings.actionTimings[id]?.[field] ?? "";
     for (const key of ["increaseHotkey", "decreaseHotkey", "resetHotkey"]) elements[key].value = settings[key];
     elements.disabledOrigins.value = settings.disabledOrigins.join("\n");
     for (const input of settingInputs) {
