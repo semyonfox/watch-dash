@@ -9,6 +9,7 @@ function loadScripts(files, extras) {
   const context = Object.assign(
     {
       console,
+      URL,
       setTimeout,
       clearTimeout,
     },
@@ -321,7 +322,7 @@ function testPlatformActionsDedupeSelectorsAtRegistration() {
   }
 }
 
-function testContentInitializationPreservesVideoPreload() {
+function testContentInitializationPreservesVideoPreload(disabled = false) {
   const video = {
     playbackRate: 1,
     paused: false,
@@ -344,6 +345,7 @@ function testContentInitializationPreservesVideoPreload() {
     {
       location: {
         hostname: "example.test",
+        origin: "https://example.test",
         pathname: "/watch",
         href: "https://example.test/watch",
       },
@@ -361,7 +363,9 @@ function testContentInitializationPreservesVideoPreload() {
                 watchDashSettings: {
                   settings: {
                     enabled: true,
-                    speedControls: false,
+                    speedControls: disabled,
+                    targetSpeed: 2,
+                    disabledOrigins: disabled ? ["https://example.test"] : [],
                     qualityDiagnostics: true,
                     youtubeQualityControls: false,
                   },
@@ -429,6 +433,7 @@ function testContentInitializationPreservesVideoPreload() {
 
   assert.strictEqual(observed, true);
   assert.strictEqual(video.preload, "metadata");
+  assert.strictEqual(video.playbackRate, 1, "excluded playback stays untouched");
 }
 
 function testContentSchedulerCoalescesMutationsAndScopesObserver() {
@@ -1604,12 +1609,16 @@ function testDefaultsContract() {
       youtubeAdSpeed: 16,
       youtubeAutoSkipAds: true,
       clickCooldownMs: 1600,
+      speedMemory: "global",
+      platformSpeeds: context.WatchDashDefaults.defaultSettings.platformSpeeds,
+      originSpeeds: context.WatchDashDefaults.defaultSettings.originSpeeds,
+      disabledOrigins: context.WatchDashDefaults.defaultSettings.disabledOrigins,
       hotkeys: true,
     },
     "default settings values drifted; update this contract deliberately.",
   );
   assert.strictEqual(defaults.storageKey, "watchDashSettings");
-  assert.strictEqual(defaults.version, 1);
+  assert.strictEqual(defaults.version, 2);
   assert.strictEqual(Object.isFrozen(defaults), true);
   assert.strictEqual(Object.isFrozen(defaults.defaultSettings), true);
 }
@@ -1620,8 +1629,8 @@ function testNormalizeWithoutInputReturnsAllDefaults() {
 
   for (const emptyInput of [null, undefined, "garbage", 42]) {
     assert.deepStrictEqual(
-      { ...tools.normalize(emptyInput) },
-      { ...defaults.defaultSettings },
+      JSON.parse(JSON.stringify(tools.normalize(emptyInput))),
+      JSON.parse(JSON.stringify(defaults.defaultSettings)),
       `normalize(${String(emptyInput)}) should produce the default settings.`,
     );
   }
@@ -1824,7 +1833,7 @@ function testExportRoundTripStripsUnknownKeys() {
   const parsed = JSON.parse(
     tools.toExportText({ targetSpeed: 2, mysteryKey: "gone" }),
   );
-  assert.strictEqual(parsed.version, 1);
+  assert.strictEqual(parsed.version, 2);
   assert.strictEqual(parsed.settings.targetSpeed, 2);
   assert.strictEqual(
     Object.prototype.hasOwnProperty.call(parsed.settings, "mysteryKey"),
@@ -1848,11 +1857,11 @@ function testSettingsPayloadAndMigrationGuards() {
   assert.strictEqual(tools.needsStorageMigration("nope"), true);
   assert.strictEqual(tools.needsStorageMigration({ version: 1 }), true);
   assert.strictEqual(
-    tools.needsStorageMigration({ version: 2, settings: {} }),
+    tools.needsStorageMigration({ version: 1, settings: {} }),
     true,
   );
   assert.strictEqual(
-    tools.needsStorageMigration({ version: 1, settings: {} }),
+    tools.needsStorageMigration({ version: 2, settings: {} }),
     false,
   );
 }
@@ -2563,3 +2572,21 @@ testPopupIgnoresOutOfOrderSettingsResponses();
 require("./test-telemetry.js");
 
 require("./test-ui-recovery.js");
+
+{
+  const tools = loadSettingsTools().WatchDashSettings;
+  const legacy = tools.normalize({ version: 1, settings: { targetSpeed: 1.5 } });
+  assert.strictEqual(tools.speedFor(legacy, "https://video.example", "youtube"), 1.5);
+  const site = tools.rememberSpeed(tools.normalize({ ...legacy, speedMemory: "site" }), 2, "https://video.example", "youtube");
+  assert.strictEqual(site.targetSpeed, 1.5);
+  assert.strictEqual(tools.speedFor(site, "https://video.example", "youtube"), 2);
+  assert.strictEqual(tools.speedFor(site, "https://other.example", "youtube"), 1.5);
+  const platform = tools.rememberSpeed(tools.normalize({ ...site, speedMemory: "platform" }), 3, "https://video.example", "youtube");
+  assert.strictEqual(tools.speedFor(platform, "https://other.example", "youtube"), 3);
+  const bounded = tools.normalize({ originSpeeds: Object.fromEntries(Array.from({length:100}, (_, i) => [`https://site${i}.example`, 2])), disabledOrigins: ["https://video.example", "file:///tmp", "https://video.example/path"] });
+  assert.strictEqual(Object.keys(bounded.originSpeeds).length, 20);
+  assert.strictEqual(bounded.disabledOrigins.length, 1);
+  assert(Buffer.byteLength(JSON.stringify(tools.toStorageValue(bounded))) < 8192);
+}
+
+testContentInitializationPreservesVideoPreload(true);

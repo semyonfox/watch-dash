@@ -18,12 +18,16 @@
     youtubeAdSpeed: 16,
     youtubeAutoSkipAds: true,
     clickCooldownMs: 1600,
+    speedMemory: "global",
+    platformSpeeds: Object.freeze({}),
+    originSpeeds: Object.freeze({}),
+    disabledOrigins: Object.freeze([]),
     hotkeys: true
   });
 
   root.WatchDashDefaults = Object.freeze({
     storageKey: "watchDashSettings",
     defaultSettings,
-    version: 1
+    version: 2
   });
 })(globalThis);

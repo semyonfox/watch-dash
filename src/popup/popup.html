@@ -394,6 +394,13 @@
           </button>
         </div>
       </details>
+      <details class="panel">
+        <summary>Speed memory and site control</summary>
+        <label for="speedMemory">Remember speeds</label>
+        <select id="speedMemory"><option value="global">Global default</option><option value="platform">Per platform</option><option value="site">Per site</option></select>
+        <label><input id="disableSite" type="checkbox"> Disable WatchDash on this site</label>
+        <p class="hint">Site exclusions stop speed changes, hotkeys and automation. Up to 20 recent speeds and 20 excluded origins are synced.</p>
+      </details>
     </main>
 
     <script src="../shared/defaults.js"></script>

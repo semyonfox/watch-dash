@@ -344,6 +344,11 @@
         </p>
         <p id="telemetryStatus" role="status"></p>
       </section>
+      <section class="panel"><h2>Disabled sites</h2>
+        <label for="disabledOrigins">One origin per line, including http:// or https://</label>
+        <textarea id="disabledOrigins" rows="5" placeholder="https://example.com"></textarea>
+        <p class="hint">WatchDash stops speed changes, hotkeys and automation on these exact origins. This does not revoke site access.</p>
+      </section>
     </main>
 
     <script src="../shared/defaults.js"></script>

@@ -6,6 +6,8 @@ Manifest V3 browser extension for streaming playback utilities across the major 
 
 - Playback speed control from 0.25x to 16x.
 - Presets and popup controls.
+- Optional speed memory per platform or exact site origin. The global speed remains the fallback. Each map keeps its 20 most recently changed entries.
+- Disable sites in the popup or manage up to 20 exact origins in Settings. Exclusions stop playback changes, hotkeys and automation, and sync with preferences.
 - Keyboard commands and in-page hotkeys:
   - `+` or `=` increase speed.
   - `-` decrease speed.
