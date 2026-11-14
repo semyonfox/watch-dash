@@ -194,7 +194,9 @@ function assertContentScriptBundles() {
   const loadOrder = bundles.flatMap((bundle) => bundle.js || []);
   const requiredOrderPairs = [
     ["src/shared/defaults.js", "src/shared/settings.js"],
-    ["src/shared/settings.js", "src/content/platforms.js"],
+    ["src/shared/settings.js", "src/content/adapter-common.js"],
+    ["src/content/adapter-common.js", "src/content/adapter-detection.js"],
+    ["src/content/adapter-detection.js", "src/content/platforms.js"],
     ["src/content/platforms.js", "src/content/media.js"],
     ["src/content/media.js", "src/content/automation.js"],
     ["src/content/automation.js", "src/content/youtube-controller.js"],
@@ -362,13 +364,9 @@ function loadPlatformRegistryHosts() {
   };
   context.globalThis = context;
 
-  vm.runInNewContext(
-    fs.readFileSync(path.join(root, "src/content/platforms.js"), "utf8"),
-    context,
-    {
-      filename: "src/content/platforms.js",
-    },
-  );
+  for (const file of ["adapter-common.js", "adapter-detection.js", "adapters/netflix.js", "adapters/streaming.js", "adapters/youtube.js", "adapters/jellyfin.js", "platforms.js"]) {
+    vm.runInNewContext(fs.readFileSync(path.join(root, "src/content", file), "utf8"), context, { filename: file });
+  }
 
   return new Set(
     context.WatchDashPlatforms.flatMap(

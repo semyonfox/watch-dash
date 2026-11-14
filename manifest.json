@@ -27,7 +27,11 @@
   "background": {
     "service_worker": "src/background/service-worker.js"
   },
-  "permissions": ["activeTab", "scripting", "storage"],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
   "host_permissions": [
     "*://*.netflix.com/*",
     "*://*.primevideo.com/*",
@@ -67,7 +71,10 @@
     "http://[::1]/",
     "https://[::1]/"
   ],
-  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
   "content_scripts": [
     {
       "matches": [
@@ -112,6 +119,12 @@
       "js": [
         "src/shared/defaults.js",
         "src/shared/settings.js",
+        "src/content/adapter-common.js",
+        "src/content/adapter-detection.js",
+        "src/content/adapters/netflix.js",
+        "src/content/adapters/streaming.js",
+        "src/content/adapters/youtube.js",
+        "src/content/adapters/jellyfin.js",
         "src/content/platforms.js",
         "src/content/media.js",
         "src/content/automation.js",
@@ -121,8 +134,13 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["*://*.youtube.com/*", "*://youtu.be/*"],
-      "js": ["src/content/youtube-bridge.js"],
+      "matches": [
+        "*://*.youtube.com/*",
+        "*://youtu.be/*"
+      ],
+      "js": [
+        "src/content/youtube-bridge.js"
+      ],
       "run_at": "document_start",
       "world": "MAIN"
     }
