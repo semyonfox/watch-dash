@@ -10,6 +10,7 @@
 
   let settings = settingsTools.normalize();
   let activeTab = null;
+  let activePlatform = null;
   let activePlaybackSettingsUrl = null;
   let pendingStoredSettings = null;
   let settingsPersistTimer = null;
@@ -47,6 +48,8 @@
     }
 
     for (const id of [
+      "speedMemory",
+      "disableSite",
       "platform",
       "speed",
       "speedBadge",
@@ -85,6 +88,14 @@
   }
 
   function wireEvents() {
+    elements.speedMemory.addEventListener("change", () => updateSettings({ speedMemory: elements.speedMemory.value }));
+    elements.disableSite.addEventListener("change", () => {
+      const origin = activeOrigin();
+      if (!origin) return;
+      updateSettings({ disabledOrigins: elements.disableSite.checked
+        ? [...settings.disabledOrigins, origin] : settings.disabledOrigins.filter(value => value !== origin) });
+      flushSettingsPersist();
+    });
     for (const input of settingInputs) {
       input.addEventListener("change", () => {
         updateSettings({ [input.dataset.setting]: input.checked });
@@ -114,7 +125,7 @@
         event.preventDefault();
         updateSettings({
           targetSpeed:
-            settings.targetSpeed +
+            displayedSpeed() +
             (["ArrowLeft", "ArrowDown"].includes(event.key) ? -1 : 1) *
               settings.speedStep,
         });
@@ -135,13 +146,13 @@
 
     elements.decrease.addEventListener("click", () => {
       updateSettings({
-        targetSpeed: settings.targetSpeed - settings.speedStep,
+        targetSpeed: displayedSpeed() - settings.speedStep,
       });
     });
 
     elements.increase.addEventListener("click", () => {
       updateSettings({
-        targetSpeed: settings.targetSpeed + settings.speedStep,
+        targetSpeed: displayedSpeed() + settings.speedStep,
       });
     });
 
@@ -262,6 +273,12 @@
   function updateSettings(partial) {
     if (!storageReady) return;
     const api = extensionApis();
+    const speed = partial.targetSpeed;
+    if (speed !== undefined) {
+      settings = settingsTools.rememberSpeed(settings, speed, activeOrigin(), activePlatform);
+      partial = { ...partial };
+      delete partial.targetSpeed;
+    }
     settings = settingsTools.normalize(Object.assign({}, settings, partial));
     settingsRevision += 1;
     renderSettings();
@@ -330,7 +347,17 @@
     );
   }
 
+  function activeOrigin() {
+    try { return new URL(activeTab.url).origin; } catch { return null; }
+  }
+
+  function displayedSpeed() {
+    return settingsTools.speedFor(settings, activeOrigin(), activePlatform);
+  }
+
   function renderSettings() {
+    elements.speedMemory.value = settings.speedMemory;
+    elements.disableSite.checked = settings.disabledOrigins.includes(activeOrigin());
     for (const input of settingInputs) {
       input.checked = Boolean(settings[input.dataset.setting]);
     }
@@ -338,16 +365,16 @@
     elements.speed.min = settings.minSpeed;
     elements.speed.max = settings.maxSpeed;
     elements.speed.step = "0.01";
-    elements.speed.value = settings.targetSpeed;
+    elements.speed.value = displayedSpeed();
     elements.speed.setAttribute(
       "aria-valuetext",
-      `${settings.targetSpeed.toFixed(2)} times normal speed`,
+      `${displayedSpeed().toFixed(2)} times normal speed`,
     );
     elements.speedNumber.min = settings.minSpeed;
     elements.speedNumber.max = settings.maxSpeed;
     elements.speedNumber.step = "0.01";
-    elements.speedNumber.value = settings.targetSpeed.toFixed(2);
-    elements.speedBadge.textContent = `${settings.targetSpeed.toFixed(2)}x`;
+    elements.speedNumber.value = displayedSpeed().toFixed(2);
+    elements.speedBadge.textContent = `${displayedSpeed().toFixed(2)}x`;
     elements.speedStep.value = settings.speedStep.toFixed(2);
     elements.qualityTarget.value = settingsTools.qualityTargetIndex(
       settings.qualityTargetHeight,
@@ -364,7 +391,7 @@
 
     for (const button of document.querySelectorAll("[data-speed]")) {
       const speed = Number(button.dataset.speed);
-      const selected = Math.abs(speed - settings.targetSpeed) < 0.001;
+      const selected = Math.abs(speed - displayedSpeed()) < 0.001;
       button.setAttribute("aria-pressed", selected ? "true" : "false");
     }
   }
@@ -449,6 +476,8 @@
       renderSettings();
     }
 
+    activePlatform = response.status?.platform || null;
+    renderSettings();
     renderStatus(response.status);
   }
 
@@ -561,7 +590,7 @@
 
   function statusAnnouncementText(status, speed) {
     const parts = [
-      `${settings.enabled ? "WatchDash on" : "WatchDash off"}. ${settings.speedControls ? "Speed control on" : "Speed control off"}. ${status.platformLabel}. ${Number.isFinite(status.activeSpeed) ? "Actual speed " + Number(speed).toFixed(2) + "x" : "No measured playback speed"}. Target ${settings.targetSpeed.toFixed(2)}x`,
+      `${settings.enabled ? "WatchDash on" : "WatchDash off"}. ${settings.speedControls ? "Speed control on" : "Speed control off"}. ${status.platformLabel}. ${Number.isFinite(status.activeSpeed) ? "Actual speed " + Number(speed).toFixed(2) + "x" : "No measured playback speed"}. Target ${displayedSpeed().toFixed(2)}x`,
     ];
 
     if (status.videoWidth && status.videoHeight) {

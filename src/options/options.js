@@ -51,6 +51,7 @@
     }
 
     for (const id of [
+      "disabledOrigins",
       "targetSpeed",
       "targetSpeedRange",
       "speedChip",
@@ -77,6 +78,15 @@
   }
 
   function wireEvents() {
+    elements.disabledOrigins.addEventListener("change", () => {
+      const origins = elements.disabledOrigins.value.split(/\s+/).filter(Boolean);
+      if (origins.length > 20 || origins.some(origin => !settingsTools.validOrigin(origin))) {
+        showSettingsStatus("Enter up to 20 http or https origins, without paths.", true);
+        return;
+      }
+      updateSettings({ disabledOrigins: origins });
+      flushSettingsPersist();
+    });
     for (const input of settingInputs) {
       input.addEventListener("change", () => {
         updateSettings({ [input.dataset.setting]: input.checked });
@@ -282,6 +292,7 @@
   }
 
   function renderSettings() {
+    elements.disabledOrigins.value = settings.disabledOrigins.join("\n");
     for (const input of settingInputs) {
       input.checked = Boolean(settings[input.dataset.setting]);
     }

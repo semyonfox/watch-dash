@@ -29,6 +29,7 @@
   const hiddenAutomationIntervalMs = 5000;
   const rateFixDelayMs = 120;
 
+  let storageReady = false;
   let settings = settingsTools.normalize();
   let currentPlatform = detectPlatform();
   let lastAction = null;
@@ -133,6 +134,7 @@
 
       const storedSettings = result[storageKey];
       settings = settingsTools.normalize(storedSettings);
+      storageReady = true;
 
       if (settingsTools.needsStorageMigration(storedSettings)) {
         writeSettingsToStorage(settings);
@@ -149,6 +151,7 @@
 
   function applySettings(nextSettings) {
     settings = settingsTools.normalize(nextSettings);
+    storageReady = true;
     tick();
   }
 
@@ -191,13 +194,21 @@
     );
   }
 
+  function siteDisabled() {
+    return settings.disabledOrigins.includes(location.origin);
+  }
+
+  function rememberedSpeed() {
+    return settingsTools.speedFor(settings, location.origin, currentPlatform?.id);
+  }
+
   function targetPlaybackSpeed() {
     if (!settings.speedControls) {
       return null;
     }
 
     return settingsTools.clampNumber(
-      settings.targetSpeed,
+      rememberedSpeed(),
       settings.minSpeed,
       settings.maxSpeed,
       1,
@@ -214,6 +225,7 @@
   }
 
   function applySpeed() {
+    if (!storageReady || siteDisabled()) return;
     // unwind ad speed before any guard so disabling mid-ad never sticks at 16x
     if (adSpeedWasActive && !shouldUseYouTubeAdSpeed()) {
       restoreAdPlaybackRates(media.listVideos(), settings.enabled);
@@ -358,6 +370,7 @@
   }
 
   function handleRateChange(event) {
+    if (!storageReady || siteDisabled()) return;
     const video = event && event.target;
 
     if (!video || video.tagName !== "VIDEO") {
@@ -679,17 +692,17 @@
 
   function changeSpeed(delta) {
     const targetSpeed = settingsTools.clampNumber(
-      settings.targetSpeed + delta,
+      rememberedSpeed() + delta,
       settings.minSpeed,
       settings.maxSpeed,
       1,
     );
     showSpeedToast(targetSpeed);
-    persistSettings(Object.assign({}, settings, { targetSpeed }));
+    persistSettings(settingsTools.rememberSpeed(settings, targetSpeed, location.origin, currentPlatform?.id));
   }
 
   function handleCommand(command) {
-    if (!currentPlatform) {
+    if (!currentPlatform || siteDisabled()) {
       return;
     }
 
@@ -705,7 +718,7 @@
 
     if (command === "reset-speed") {
       showSpeedToast(1);
-      persistSettings(Object.assign({}, settings, { targetSpeed: 1 }));
+      persistSettings(settingsTools.rememberSpeed(settings, 1, location.origin, currentPlatform?.id));
       return;
     }
 
@@ -720,6 +733,7 @@
     if (
       !settings.enabled ||
       !settings.hotkeys ||
+      siteDisabled() ||
       !currentPlatform ||
       event.defaultPrevented ||
       event.ctrlKey ||
@@ -756,7 +770,7 @@
     if (event.key === "\\") {
       event.preventDefault();
       showSpeedToast(1);
-      persistSettings(Object.assign({}, settings, { targetSpeed: 1 }));
+      persistSettings(settingsTools.rememberSpeed(settings, 1, location.origin, currentPlatform?.id));
     }
   }
 
@@ -784,7 +798,8 @@
         ? actionControls(currentPlatform.actions || [])
         : [],
       enabled: settings.enabled,
-      targetSpeed: settings.targetSpeed,
+      targetSpeed: rememberedSpeed(),
+      siteDisabled: siteDisabled(),
       activeSpeed: video ? Math.round(video.playbackRate * 100) / 100 : null,
       youtubeAdShowing:
         currentPlatform && currentPlatform.id === "youtube" && youtubeController
@@ -837,6 +852,7 @@
     const hidden = isTabHidden();
 
     currentPlatform = detectPlatform();
+    if (!storageReady || siteDisabled()) return;
     activeVideo = media.findActiveVideo();
     refreshObserver(activeVideo);
     applySpeed();
@@ -971,6 +987,7 @@
     }
 
     settings = settingsTools.normalize(changes[storageKey].newValue);
+    storageReady = true;
     tick();
   });
 

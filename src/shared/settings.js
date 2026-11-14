@@ -69,7 +69,44 @@
       10000,
       defaults.defaultSettings.clickCooldownMs,
     );
+    next.speedMemory = ["global", "platform", "site"].includes(input.speedMemory) ? input.speedMemory : "global";
+    next.platformSpeeds = cleanSpeeds(input.platformSpeeds, false, next);
+    next.originSpeeds = cleanSpeeds(input.originSpeeds, true, next);
+    next.disabledOrigins = Array.isArray(input.disabledOrigins)
+      ? [...new Set(input.disabledOrigins.filter(validOrigin))].slice(0, 20) : [];
     return next;
+  }
+
+  function validOrigin(value) {
+    if (typeof value !== "string" || value.length > 100) return false;
+    try {
+      const url = new URL(value);
+      return ["http:", "https:"].includes(url.protocol) && url.origin === value;
+    } catch { return false; }
+  }
+
+  function cleanSpeeds(value, origins, settings) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    const entries = Object.entries(value).filter(([key, speed]) =>
+      (origins ? validOrigin(key) : /^[a-z][a-z0-9-]{0,30}$/.test(key)) &&
+      typeof speed === "number" && Number.isFinite(speed));
+    return Object.fromEntries(entries.slice(-20).map(([key, speed]) =>
+      [key, clampNumber(speed, settings.minSpeed, settings.maxSpeed, 1)]));
+  }
+
+  function speedFor(settings, origin, platform) {
+    const speed = settings.speedMemory === "site" ? settings.originSpeeds[origin]
+      : settings.speedMemory === "platform" ? settings.platformSpeeds[platform] : undefined;
+    return speed ?? settings.targetSpeed;
+  }
+
+  function rememberSpeed(settings, speed, origin, platform) {
+    const field = settings.speedMemory === "site" && validOrigin(origin) ? "originSpeeds"
+      : settings.speedMemory === "platform" && platform ? "platformSpeeds" : null;
+    if (!field) return normalize({ ...settings, targetSpeed: speed });
+    const key = field === "originSpeeds" ? origin : platform;
+    const entries = Object.entries(settings[field]).filter(([entry]) => entry !== key);
+    return normalize({ ...settings, [field]: Object.fromEntries([...entries, [key, speed]]) });
   }
 
   function coerceBoolean(value) {
@@ -208,6 +245,9 @@
   }
 
   root.WatchDashSettings = Object.freeze({
+    validOrigin,
+    speedFor,
+    rememberSpeed,
     qualityTargets,
     normalize,
     coerceBoolean,
