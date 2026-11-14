@@ -51,6 +51,9 @@
     }
 
     for (const id of [
+      "increaseHotkey",
+      "decreaseHotkey",
+      "resetHotkey",
       "disabledOrigins",
       "targetSpeed",
       "targetSpeedRange",
@@ -78,6 +81,17 @@
   }
 
   function wireEvents() {
+    for (const key of ["increaseHotkey", "decreaseHotkey", "resetHotkey"]) {
+      elements[key].addEventListener("change", () => {
+        const value = elements[key].value.trim();
+        if (value && !settingsTools.parseHotkey(value)) {
+          showSettingsStatus("Use Alt+code:BracketRight or key:], with optional Alt+ then Shift+. Leave blank to disable.", true);
+          return;
+        }
+        updateSettings({ [key]: value });
+        flushSettingsPersist();
+      });
+    }
     elements.disabledOrigins.addEventListener("change", () => {
       const origins = elements.disabledOrigins.value.split(/\s+/).filter(Boolean);
       if (origins.length > 20 || origins.some(origin => !settingsTools.validOrigin(origin))) {
@@ -292,6 +306,7 @@
   }
 
   function renderSettings() {
+    for (const key of ["increaseHotkey", "decreaseHotkey", "resetHotkey"]) elements[key].value = settings[key];
     elements.disabledOrigins.value = settings.disabledOrigins.join("\n");
     for (const input of settingInputs) {
       input.checked = Boolean(settings[input.dataset.setting]);

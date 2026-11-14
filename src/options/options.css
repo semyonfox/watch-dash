@@ -868,3 +868,15 @@ summary:focus-visible {
   color: var(--ink);
   font: inherit;
 }
+
+input[type="text"] {
+  display: block;
+  width: 100%;
+  margin-block: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+  color: var(--ink);
+  font: inherit;
+}

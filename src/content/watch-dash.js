@@ -731,6 +731,7 @@
 
   function handleHotkey(event) {
     if (
+      !storageReady ||
       !settings.enabled ||
       !settings.hotkeys ||
       siteDisabled() ||
@@ -747,30 +748,16 @@
       return;
     }
 
-    const increaseRequested =
-      (!event.altKey &&
-        (event.key === "+" || event.key === "=" || event.code === "Equal")) ||
-      (event.altKey && event.key === "]");
-    const decreaseRequested =
-      (!event.altKey && (event.key === "-" || event.code === "Minus")) ||
-      (event.altKey && event.key === "[");
-
-    if (increaseRequested) {
-      event.preventDefault();
-      changeSpeed(settings.speedStep);
-      return;
-    }
-
-    if (decreaseRequested) {
-      event.preventDefault();
-      changeSpeed(-settings.speedStep);
-      return;
-    }
-
-    if (event.key === "\\") {
-      event.preventDefault();
-      showSpeedToast(1);
-      persistSettings(settingsTools.rememberSpeed(settings, 1, location.origin, currentPlatform?.id));
+    for (const [binding, command] of [
+      [settings.increaseHotkey, "increase-speed"],
+      [settings.decreaseHotkey, "decrease-speed"],
+      [settings.resetHotkey, "reset-speed"],
+    ]) {
+      if (settingsTools.matchesHotkey(event, binding)) {
+        event.preventDefault();
+        handleCommand(command);
+        return;
+      }
     }
   }
 
