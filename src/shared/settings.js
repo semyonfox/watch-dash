@@ -69,12 +69,31 @@
       10000,
       defaults.defaultSettings.clickCooldownMs,
     );
+    for (const key of ["increaseHotkey", "decreaseHotkey", "resetHotkey"]) {
+      next[key] = typeof input[key] === "string" && (input[key] === "" || parseHotkey(input[key]))
+        ? input[key] : defaults.defaultSettings[key];
+    }
     next.speedMemory = ["global", "platform", "site"].includes(input.speedMemory) ? input.speedMemory : "global";
     next.platformSpeeds = cleanSpeeds(input.platformSpeeds, false, next);
     next.originSpeeds = cleanSpeeds(input.originSpeeds, true, next);
     next.disabledOrigins = Array.isArray(input.disabledOrigins)
       ? [...new Set(input.disabledOrigins.filter(validOrigin))].slice(0, 20) : [];
     return next;
+  }
+
+  function parseHotkey(binding) {
+    if (typeof binding !== "string" || binding.length > 60) return null;
+    const match = /^(Alt\+)?(Shift\+)?(key|code):(.+)$/.exec(binding);
+    if (!match) return null;
+    return { alt: Boolean(match[1]), shift: Boolean(match[2]), kind: match[3], value: match[4] };
+  }
+
+  function matchesHotkey(event, binding) {
+    const parsed = parseHotkey(binding);
+    return Boolean(parsed && !event.defaultPrevented && !event.repeat && !event.isComposing &&
+      !event.ctrlKey && !event.metaKey && !event.getModifierState?.("AltGraph") &&
+      Boolean(event.altKey) === parsed.alt && Boolean(event.shiftKey) === parsed.shift &&
+      event[parsed.kind] === parsed.value);
   }
 
   function validOrigin(value) {
@@ -245,6 +264,8 @@
   }
 
   root.WatchDashSettings = Object.freeze({
+    parseHotkey,
+    matchesHotkey,
     validOrigin,
     speedFor,
     rememberSpeed,

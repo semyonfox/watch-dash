@@ -8,11 +8,8 @@ Manifest V3 browser extension for streaming playback utilities across the major 
 - Presets and popup controls.
 - Optional speed memory per platform or exact site origin. The global speed remains the fallback. Each map keeps its 20 most recently changed entries.
 - Disable sites in the popup or manage up to 20 exact origins in Settings. Exclusions stop playback changes, hotkeys and automation, and sync with preferences.
-- Keyboard commands and in-page hotkeys:
-  - `+` or `=` increase speed.
-  - `-` decrease speed.
-  - `\` reset to 1x.
-  - `Alt+[` and `Alt+]` still work as alternate decrease/increase shortcuts.
+- Page hotkeys default to Alt+[ / Alt+] for speed and Alt+\ to reset. Customise key or physical-code bindings, or disable them individually in Settings. Editable fields, composition, AltGraph, Ctrl and Meta combinations are ignored.
+- Browser extension commands are independent of page hotkeys and use the browser's extension shortcut settings. The popup Hotkeys switch affects page shortcuts only.
 - Platform coverage:
   - Full adapter detection and speed controls on Netflix, Prime Video/Amazon, Disney+, HBO Max/Max, Hulu, Apple TV+, Peacock, Paramount+, YouTube, Crunchyroll, Tubi, The Roku Channel, Pluto TV, and local Jellyfin.
   - Jellyfin is detected by app signals on localhost or 127.0.0.1 `/web/` or `/jellyfin/` routes.

@@ -22,6 +22,9 @@
     platformSpeeds: Object.freeze({}),
     originSpeeds: Object.freeze({}),
     disabledOrigins: Object.freeze([]),
+    increaseHotkey: "Alt+code:BracketRight",
+    decreaseHotkey: "Alt+code:BracketLeft",
+    resetHotkey: "Alt+code:Backslash",
     hotkeys: true
   });
 

@@ -349,6 +349,13 @@
         <textarea id="disabledOrigins" rows="5" placeholder="https://example.com"></textarea>
         <p class="hint">WatchDash stops speed changes, hotkeys and automation on these exact origins. This does not revoke site access.</p>
       </section>
+      <section class="panel"><h2>Page hotkeys</h2>
+        <p class="hint">Use code:BracketRight for a physical key or key:] for the typed character. Optional modifiers go in this order: Alt+ then Shift+. Leave a field blank to disable it. Ctrl, Meta, AltGraph, repeated keys and editable fields are ignored. If bindings overlap, increase wins before decrease and reset.</p>
+        <label for="increaseHotkey">Increase speed</label><input id="increaseHotkey" type="text" maxlength="60" spellcheck="false">
+        <label for="decreaseHotkey">Decrease speed</label><input id="decreaseHotkey" type="text" maxlength="60" spellcheck="false">
+        <label for="resetHotkey">Reset speed</label><input id="resetHotkey" type="text" maxlength="60" spellcheck="false">
+        <p class="hint">These shortcuts only run on pages with WatchDash active. The browser separately manages extension command shortcuts. Change those in your browser extension shortcut settings. The Hotkeys switch only disables page shortcuts.</p>
+      </section>
     </main>
 
     <script src="../shared/defaults.js"></script>

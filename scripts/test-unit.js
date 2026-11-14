@@ -1613,6 +1613,9 @@ function testDefaultsContract() {
       platformSpeeds: context.WatchDashDefaults.defaultSettings.platformSpeeds,
       originSpeeds: context.WatchDashDefaults.defaultSettings.originSpeeds,
       disabledOrigins: context.WatchDashDefaults.defaultSettings.disabledOrigins,
+      increaseHotkey: "Alt+code:BracketRight",
+      decreaseHotkey: "Alt+code:BracketLeft",
+      resetHotkey: "Alt+code:Backslash",
       hotkeys: true,
     },
     "default settings values drifted; update this contract deliberately.",
@@ -2590,3 +2593,17 @@ require("./test-ui-recovery.js");
 }
 
 testContentInitializationPreservesVideoPreload(true);
+
+{
+  const tools = loadSettingsTools().WatchDashSettings;
+  const event = { key: "]", code: "BracketRight", altKey: true };
+  assert(tools.matchesHotkey(event, "Alt+code:BracketRight"));
+  assert(tools.matchesHotkey(event, "Alt+key:]"));
+  for (const change of [{shiftKey:true}, {ctrlKey:true}, {metaKey:true}, {altKey:false}, {repeat:true}, {isComposing:true}, {defaultPrevented:true}, {getModifierState: () => true}]) {
+    assert(!tools.matchesHotkey({...event, ...change}, "Alt+code:BracketRight"));
+  }
+  assert(!tools.matchesHotkey(event, ""));
+  assert(tools.matchesHotkey({key:"+", shiftKey:true}, "Shift+key:+"));
+  assert.strictEqual(tools.normalize({increaseHotkey:""}).increaseHotkey, "");
+  assert.strictEqual(tools.parseHotkey("Ctrl+key:a"), null);
+}
