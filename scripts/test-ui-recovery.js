@@ -13,6 +13,15 @@ for (const surface of ["popup", "options"]) {
   let read;
   let timerId = 0;
   let failSave = false;
+  let response;
+  let poll;
+  let pagehide;
+  let granted = true;
+  let failRegistration = false;
+  const messages = [];
+  const registered = [];
+  const injected = [];
+  const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, "../manifest.json")));
   function element(id) {
     if (!elements.has(id)) {
       const listeners = new Map();
@@ -62,7 +71,7 @@ for (const surface of ["popup", "options"]) {
     },
   };
   const chrome = {
-    runtime: { lastError: null },
+    runtime: { lastError: null, getManifest: () => manifest },
     storage: {
       local: {
         get(keys, callback) {
@@ -83,17 +92,32 @@ for (const surface of ["popup", "options"]) {
         },
       },
     },
+    scripting: {
+      unregisterContentScripts(query, callback) { callback(); },
+      registerContentScripts(scripts, callback) {
+        registered.push(...scripts);
+        chrome.runtime.lastError = failRegistration ? { message: "registration failed" } : null;
+        callback();
+        chrome.runtime.lastError = null;
+      },
+      executeScript(query, callback) { injected.push(query); callback(); },
+    },
     permissions: {
+      request(query, callback) {
+        assert.deepStrictEqual(Array.from(query.origins), ["https://media.example/*"]);
+        callback(granted);
+      },
       contains(query, callback) {
         callback(true);
       },
     },
     tabs: {
       query(query, callback) {
-        callback([{ id: 1 }]);
+        callback([{ id: 1, url: "https://media.example/watch" }]);
       },
       sendMessage(id, message, callback) {
-        callback(undefined);
+        messages.push(message);
+        callback(response);
       },
     },
   };
@@ -116,8 +140,8 @@ for (const surface of ["popup", "options"]) {
       transports += 1;
       return Promise.resolve({ status: 204 });
     },
-    setInterval() {},
-    addEventListener() {},
+    setInterval(callback) { poll = callback; },
+    addEventListener(name, callback) { if (name === "pagehide") pagehide = callback; },
     setTimeout(callback) {
       timers.set(++timerId, callback);
       return timerId;
@@ -210,6 +234,45 @@ for (const surface of ["popup", "options"]) {
     element("settingsStatus").textContent,
     "Preferences saved.",
   );
+  if (surface === "popup") {
+    response = { ok: true, status: { platform: "generic", platformLabel: "HTML5 video", activeSpeed: 1.55 } };
+    poll();
+    assert.strictEqual(document.body.dataset.connected, "true");
+    assert(element("platform").textContent.includes("HTML5 video"));
+    element("speed").value = "1.6";
+    element("speed").fire("input");
+    element("speed").value = "1.8";
+    element("speed").fire("input");
+    assert.strictEqual(writes.length, 2, "slider writes are debounced");
+    assert.strictEqual(messages.at(-1).type, "watch-dash:set-settings");
+    assert.strictEqual(messages.at(-1).settings.targetSpeed, 1.8);
+    for (const [id, callback] of timers) { timers.delete(id); callback(); }
+    assert.strictEqual(writes.length, 3);
+    assert.strictEqual(writes.at(-1).watchDashSettings.settings.targetSpeed, 1.8);
+    element("speed").value = "2";
+    element("speed").fire("input");
+    pagehide();
+    assert.strictEqual(writes.length, 4, "pagehide flushes the latest change");
+    response = undefined;
+    poll();
+    assert.strictEqual(document.body.dataset.connected, "false");
+    assert.strictEqual(element("enableSite").hidden, false);
+    granted = false;
+    element("enableSite").fire("click");
+    assert.strictEqual(registered.length, 0);
+    assert(element("siteStatus").textContent.includes("not granted"));
+    granted = true;
+    failRegistration = true;
+    element("enableSite").fire("click");
+    assert.strictEqual(injected.length, 0);
+    failRegistration = false;
+    element("enableSite").fire("click");
+    assert.strictEqual(injected.length, 1);
+    assert.deepStrictEqual(Array.from(injected[0].files), manifest.content_scripts[0].js);
+    assert.deepStrictEqual(Array.from(registered.at(-1).matches), ["https://media.example/*"]);
+    assert.strictEqual(registered.at(-1).persistAcrossSessions, true);
+  }
+
   assert.strictEqual(
     transports,
     0,
