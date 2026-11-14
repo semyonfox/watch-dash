@@ -35,6 +35,7 @@ Manifest V3 browser extension for streaming playback utilities across the major 
   - Current rate.
   - Decoded video resolution when the browser exposes it.
   - Dropped frame counter when available.
+- Local quality guidance lists browser/OS hints, codec support and Encrypted Media API availability, with service-specific checks. These hints do not certify DRM, HDCP or subscription eligibility. No licence probes or telemetry are used.
 - Quality target slider for diagnostics. It compares the decoded resolution with your target, but it does not force account, browser, or DRM quality.
 - Netflix playback settings shortcut when the active platform exposes a settings URL.
 

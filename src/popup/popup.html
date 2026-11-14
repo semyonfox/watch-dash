@@ -401,12 +401,20 @@
         <label><input id="disableSite" type="checkbox"> Disable WatchDash on this site</label>
         <p class="hint">Site exclusions stop speed changes, hotkeys and automation. Up to 20 recent speeds and 20 excluded origins are synced.</p>
       </details>
+      <details class="panel">
+        <summary>Quality capability guidance</summary>
+        <p id="qualityGuidance" class="hint"></p>
+        <p class="hint">Checks run locally and are not stored or sent anywhere.</p>
+        <a href="https://help.netflix.com/en/node/30081" target="_blank" rel="noopener noreferrer">Netflix browser requirements</a>
+        <a href="https://help.netflix.com/en/node/23931" target="_blank" rel="noopener noreferrer">Netflix Windows and Ultra HD checklist</a>
+      </details>
     </main>
 
     <script src="../shared/defaults.js"></script>
     <script src="../shared/settings.js"></script>
     <script src="../shared/telemetry-config.js"></script>
     <script src="../shared/telemetry.js"></script>
+    <script src="../shared/quality.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

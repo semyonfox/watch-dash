@@ -11,6 +11,7 @@
   let settings = settingsTools.normalize();
   let activeTab = null;
   let activePlatform = null;
+  let qualityCapabilities = null;
   let activePlaybackSettingsUrl = null;
   let pendingStoredSettings = null;
   let settingsPersistTimer = null;
@@ -48,6 +49,7 @@
     }
 
     for (const id of [
+      "qualityGuidance",
       "speedMemory",
       "disableSite",
       "platform",
@@ -482,6 +484,7 @@
   }
 
   function renderDisconnected() {
+    renderQualityGuidance(null);
     activePlaybackSettingsUrl = null;
     document.body.dataset.connected = "false";
     elements.platform.textContent = "No player connected";
@@ -529,6 +532,7 @@
       Number.isFinite(status.activeSpeed) ? "ok" : "unknown",
     );
 
+    renderQualityGuidance(status);
     renderResolutionRow(status);
     renderFramesRow(status);
 
@@ -539,6 +543,12 @@
     }
 
     announceStatusChange(statusAnnouncementText(status, speed));
+  }
+
+  function renderQualityGuidance(status) {
+    if (!root.WatchDashQuality) return;
+    qualityCapabilities ||= root.WatchDashQuality.inspect(root.navigator, document.createElement("video"));
+    elements.qualityGuidance.textContent = root.WatchDashQuality.guidance(status?.platform, qualityCapabilities);
   }
 
   function renderResolutionRow(status) {

@@ -2626,3 +2626,15 @@ testContentInitializationPreservesVideoPreload(true);
   gate.clear();
   assert(gate.ready("intro", target, 0, 0));
 }
+
+{
+  const tools = loadScripts(["src/shared/quality.js"]).WatchDashQuality;
+  const capabilities = tools.inspect({userAgent:"Windows NT Chrome/140 Edg/140", requestMediaKeySystemAccess() { throw new Error("must not probe DRM"); }}, {canPlayType: () => "maybe"});
+  assert.strictEqual(capabilities.browser, "Edge");
+  assert.strictEqual(capabilities.os, "Windows");
+  assert.strictEqual(capabilities.encryptedMediaApi, true);
+  assert(tools.guidance("netflix", capabilities).includes("HEVC"));
+  assert(tools.guidance("jellyfin", capabilities).includes("transcoding"));
+  assert.strictEqual(tools.inspect({userAgent:"Linux Firefox/140"}, {}).browser, "Firefox");
+  assert.strictEqual(tools.inspect({}, {canPlayType() { throw new Error(); }}).codecs[0], "H264: unavailable");
+}
