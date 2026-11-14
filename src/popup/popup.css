@@ -952,3 +952,5 @@ summary:focus-visible {
   color: var(--ink);
   font: inherit;
 }
+
+#qualityGuidance { white-space: pre-line; }
