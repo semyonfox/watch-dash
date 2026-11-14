@@ -36,6 +36,7 @@
     wireEvents();
     renderSettings();
     loadSettings();
+    refreshCustomSites();
     if (root.WatchDashTelemetry)
       root.WatchDashTelemetry.onPreference((enabled) => {
         if (enabled) root.WatchDashTelemetry.count("screen_view", "settings");
@@ -74,6 +75,35 @@
     }
   }
 
+  function refreshCustomSites() {
+    if (!root.WatchDashSiteAccess) return;
+    const api = extensionApis();
+    elements.customSites.replaceChildren();
+    root.WatchDashSiteAccess.list(api, (sites, error) => {
+      elements.siteAccessStatus.textContent = error || (sites.length ? "Custom sites with access or a saved registration:" : "No custom sites enabled.");
+      for (const site of sites || []) {
+        const row = document.createElement("li");
+        const name = document.createElement("span");
+        name.textContent = site.pattern;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = "Remove site";
+        button.setAttribute("aria-label", `Remove ${site.pattern}`);
+        button.addEventListener("click", () => {
+          button.disabled = true;
+          root.WatchDashSiteAccess.remove(api, site, (removed, message) => {
+            if (removed) row.remove();
+            else button.disabled = false;
+            elements.siteAccessStatus.textContent = message;
+          });
+        });
+        row.appendChild(name);
+        row.appendChild(button);
+        elements.customSites.appendChild(row);
+      }
+    });
+  }
+
   function collectElements() {
     settingInputs = Array.from(
       document.querySelectorAll("input[data-setting]"),
@@ -87,6 +117,9 @@
       "increaseHotkey",
       "decreaseHotkey",
       "resetHotkey",
+      "customSites",
+      "siteAccessStatus",
+      "refreshSites",
       "disabledOrigins",
       "targetSpeed",
       "targetSpeedRange",
@@ -114,6 +147,7 @@
   }
 
   function wireEvents() {
+    elements.refreshSites.addEventListener("click", refreshCustomSites);
     for (const key of ["increaseHotkey", "decreaseHotkey", "resetHotkey"]) {
       elements[key].addEventListener("change", () => {
         const value = elements[key].value.trim();

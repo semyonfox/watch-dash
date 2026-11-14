@@ -76,6 +76,8 @@ Manifest permissions are limited to:
 - Listed streaming host permissions, so content scripts can run only on supported player sites by default.
 - Optional `http://*/*` and `https://*/*` host access, requested for the current site only when you choose **Enable on This Site**.
 
+Custom site access can be reviewed and removed in Settings. Removal unregisters future injections and revokes the optional origin permission. Reload existing tabs to stop already injected scripts. Built-in streaming access remains managed by the browser.
+
 ## Quality Approach
 
 The first implementation does not copy or patch Netflix player internals. Higher quality playback is started as diagnostics, a target slider, and account/browser guidance because current high-quality forcing techniques are brittle, browser/DRM dependent, and often rely on patched proprietary player bundles.

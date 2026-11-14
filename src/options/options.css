@@ -880,3 +880,8 @@ input[type="text"] {
   color: var(--ink);
   font: inherit;
 }
+
+#customSites { padding: 0; list-style: none; }
+#customSites li { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-block: 10px; }
+#customSites span { overflow-wrap: anywhere; min-width: 0; }
+#customSites button { flex-shrink: 0; }

@@ -360,6 +360,12 @@
         <p class="hint">Delay starts when an eligible control appears and resets when it disappears. Values are milliseconds. Blank cooldowns use the adapter default, then the global click cooldown. Delays range from 0 to 30000 and cooldowns from 500 to 120000.</p>
         <div id="actionTimings" class="field-grid"></div>
       </section>
+      <section class="panel"><h2>Custom site access</h2>
+        <p class="hint">These sites were enabled with the popup. Built-in streaming platforms are separate and managed through your browser's extension permissions. Removing a site unregisters future scripts and revokes its optional permission. Reload existing tabs afterwards.</p>
+        <button id="refreshSites" type="button">Refresh sites</button>
+        <p id="siteAccessStatus" role="status"></p>
+        <ul id="customSites"></ul>
+      </section>
     </main>
 
     <script src="../shared/defaults.js"></script>
@@ -373,6 +379,7 @@
     <script src="../content/adapters/youtube.js"></script>
     <script src="../content/adapters/jellyfin.js"></script>
     <script src="../content/platforms.js"></script>
+    <script src="../shared/site-access.js"></script>
     <script src="options.js"></script>
   </body>
 </html>

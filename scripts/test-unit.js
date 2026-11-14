@@ -2638,3 +2638,49 @@ testContentInitializationPreservesVideoPreload(true);
   assert.strictEqual(tools.inspect({userAgent:"Linux Firefox/140"}, {}).browser, "Firefox");
   assert.strictEqual(tools.inspect({}, {canPlayType() { throw new Error(); }}).codecs[0], "H264: unavailable");
 }
+
+{
+  const tools = loadScripts(["src/shared/site-access.js"]).WatchDashSiteAccess;
+  const origins = ["*://*.netflix.com/*", "https://media.example/*", "https://leftover.example/*"];
+  let scripts = [{id:"watchdash_media", matches:["https://media.example/*"]}, {id:"unrelated", matches:["https://other.example/*"]}];
+  const calls = [];
+  let failUnregister = false;
+  let failRevoke = false;
+  const api = {
+    runtime: { getManifest: () => ({host_permissions:["*://*.netflix.com/*"]}) },
+    permissions: {
+      getAll(callback) { callback({origins}); },
+      remove(query, callback) { calls.push("revoke"); callback(!failRevoke); },
+    },
+    scripting: {
+      getRegisteredContentScripts(callback) { callback(scripts); },
+      unregisterContentScripts(query, callback) {
+        calls.push("unregister");
+        api.runtime.lastError = failUnregister ? {} : null;
+        callback();
+        api.runtime.lastError = null;
+      },
+    },
+  };
+  let sites;
+  tools.list(api, (result, error) => { assert.strictEqual(error, null); sites = result; });
+  assert.deepStrictEqual(Array.from(sites, site => site.pattern), ["https://leftover.example/*", "https://media.example/*"]);
+  tools.remove(api, sites[1], removed => assert(removed));
+  assert.deepStrictEqual(calls, ["unregister", "revoke"]);
+  calls.length = 0;
+  sites[1].ids = ["watchdash_media"];
+  failUnregister = true;
+  tools.remove(api, sites[1], removed => assert(!removed));
+  assert.deepStrictEqual(calls, ["unregister"]);
+  failUnregister = false;
+  failRevoke = true;
+  tools.remove(api, sites[1], removed => assert(!removed));
+  calls.length = 0;
+  failRevoke = false;
+  tools.remove(api, sites[1], removed => assert(removed));
+  assert.deepStrictEqual(calls, ["revoke"], "retry does not unregister an already removed script");
+  calls.length = 0;
+  tools.remove(api, {pattern:"https://www.netflix.com/*", ids:[]}, removed => assert(!removed));
+  assert.strictEqual(calls.length, 0);
+  tools.list({}, (result, error) => assert(error));
+}
