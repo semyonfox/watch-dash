@@ -356,6 +356,10 @@
         <label for="resetHotkey">Reset speed</label><input id="resetHotkey" type="text" maxlength="60" spellcheck="false">
         <p class="hint">These shortcuts only run on pages with WatchDash active. The browser separately manages extension command shortcuts. Change those in your browser extension shortcut settings. The Hotkeys switch only disables page shortcuts.</p>
       </section>
+      <section class="panel"><h2>Automation timing</h2>
+        <p class="hint">Delay starts when an eligible control appears and resets when it disappears. Values are milliseconds. Blank cooldowns use the adapter default, then the global click cooldown. Delays range from 0 to 30000 and cooldowns from 500 to 120000.</p>
+        <div id="actionTimings" class="field-grid"></div>
+      </section>
     </main>
 
     <script src="../shared/defaults.js"></script>

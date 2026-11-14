@@ -18,6 +18,7 @@
     youtubeAdSpeed: 16,
     youtubeAutoSkipAds: true,
     clickCooldownMs: 1600,
+    actionTimings: Object.freeze({}),
     speedMemory: "global",
     platformSpeeds: Object.freeze({}),
     originSpeeds: Object.freeze({}),

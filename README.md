@@ -23,6 +23,7 @@ Manifest V3 browser extension for streaming playback utilities across the major 
   - Auto-click YouTube's current skip-ad controls when they appear.
   - Jump the ad video near its end when YouTube is in ad mode but no visible skip-ad control is exposed.
   - Use YouTube's current next-video, autonav endscreen, and Play Now controls for auto-next.
+- Per-action delay and cooldown controls in Settings. Blank cooldowns preserve adapter defaults, then use the global click cooldown. Delay waits for the same eligible control to remain present.
 - Button automation where the platform exposes accessible player controls:
   - Skip intro.
   - Skip recap.

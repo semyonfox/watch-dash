@@ -48,6 +48,7 @@
   let observedRoot = null;
 
   const actionCooldowns = new Map();
+  const actionDelays = automation.createDelayGate?.();
   const expectedRates = new WeakMap();
   let adSpeedRestoreRates = new WeakMap();
 
@@ -150,6 +151,7 @@
   }
 
   function applySettings(nextSettings) {
+    actionDelays?.clear();
     settings = settingsTools.normalize(nextSettings);
     storageReady = true;
     tick();
@@ -444,6 +446,7 @@
 
   function runAutomation(video) {
     if (!settings.enabled || !currentPlatform || !currentPlatform.actions) {
+      actionDelays?.clear();
       return;
     }
 
@@ -470,10 +473,11 @@
 
     for (const action of currentPlatform.actions) {
       if (!settings[action.setting]) {
+        actionDelays?.clear(action.id);
         continue;
       }
 
-      const cooldownMs = action.cooldownMs || settings.clickCooldownMs;
+      const { delayMs, cooldownMs } = settingsTools.actionTiming(settings, action);
       const previousClickAt = actionCooldowns.get(action.id) || 0;
 
       if (now - previousClickAt < cooldownMs) {
@@ -487,6 +491,9 @@
         textFallbackRoot: getTextFallbackRoot(video),
       });
       if (!target) {
+        const fallbackEligible = action.type === "adSkip" && youtubeController?.isAdShowing(currentPlatform);
+        if (fallbackEligible && actionDelays && !actionDelays.ready(action.id, video, now, delayMs)) continue;
+        if (!fallbackEligible) actionDelays?.clear(action.id);
         // misses back off so idle watch pages do not rescan every tick
         actionCooldowns.set(
           action.id,
@@ -506,9 +513,12 @@
       }
 
       if (!shouldRunAction(action, target, video)) {
+        actionDelays?.clear(action.id);
         continue;
       }
 
+      if (actionDelays && !actionDelays.ready(action.id, target, now, delayMs)) continue;
+      actionDelays?.clear(action.id);
       actionCooldowns.set(action.id, now);
       automation.clickElement(target);
       lastAction = action.label;
@@ -839,7 +849,7 @@
     const hidden = isTabHidden();
 
     currentPlatform = detectPlatform();
-    if (!storageReady || siteDisabled()) return;
+    if (!storageReady || siteDisabled()) { actionDelays?.clear(); return; }
     activeVideo = media.findActiveVideo();
     refreshObserver(activeVideo);
     applySpeed();
